@@ -264,6 +264,7 @@ async function startTopup(packId, btn, opts = {}) {
 
 // ---------- automatic payments through Midtrans: credits arrive by themselves after paying ----------
 const VA_FEE = 5500;     // shown to the customer; the server decides the real fee
+const qrisFee = (harga) => Math.ceil((harga * 7) / 1000);   // 0.7%, same rule as the server
 const BANKS = [['bca', 'BCA'], ['bni', 'BNI'], ['bri', 'BRI'], ['mandiri', 'Mandiri'], ['permata', 'Permata'], ['cimb', 'CIMB Niaga']];
 const bankName = (b) => (BANKS.find((x) => x[0] === b) || [b, String(b || '').toUpperCase()])[1];
 const fmtUntil = (d) => new Date(d).toLocaleString(L('id-ID', 'en-GB'), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -281,9 +282,9 @@ function chooseMethod(pack) {
     <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${pack.kredit} ${L('kredit', 'credits')} · <b>${rupiah(pack.harga)}</b></p>
     <div class="pay-methods">
       <button class="pay-qris" data-method="qris">
-        <span class="pay-head"><span class="pack-name">QRIS <span class="badge b-success">${L('Disarankan', 'Recommended')}</span></span><b class="mono">${rupiah(pack.harga)}</b></span>
+        <span class="pay-head"><span class="pack-name">QRIS <span class="badge b-success">${L('Disarankan', 'Recommended')}</span></span><b class="mono">${rupiah(pack.harga + qrisFee(pack.harga))}</b></span>
         <span class="muted small">${L('Paling cepat: kredit masuk beberapa detik setelah bayar. Bisa dari GoPay, OVO, DANA, ShopeePay, atau m-banking apa pun.', 'Fastest: credits arrive seconds after you pay. Works with GoPay, OVO, DANA, ShopeePay or any banking app.')}</span>
-        <span class="xs pay-free">${L('Tanpa biaya tambahan', 'No extra fee')}</span>
+        <span class="xs muted">${L(`Termasuk biaya layanan 0,7% (${rupiah(qrisFee(pack.harga))})`, `Includes a 0.7% service fee (${rupiah(qrisFee(pack.harga))})`)}</span>
         <span class="btn btn-primary pay-qris-cta">${L('Bayar dengan QRIS', 'Pay with QRIS')}</span></button>
       <div class="pay-va"><span class="pay-head"><span class="pack-name">${L('Atau transfer bank (Virtual Account)', 'Or bank transfer (Virtual Account)')}</span><b class="mono">${rupiah(pack.harga + VA_FEE)}</b></span>
         <span class="xs muted">${L(`Termasuk biaya transfer bank ${rupiah(VA_FEE)}`, `Includes a ${rupiah(VA_FEE)} bank transfer fee`)}</span>
@@ -347,18 +348,20 @@ async function showQr(data) {
     png = await QR.toDataURL(data.qr_string, { errorCorrectionLevel: 'M', margin: 3, width: 720 });
   } catch (e) { const m = $('tpMsg'); if (m) m.innerHTML = notice(L('QRIS tidak dapat ditampilkan: ', 'Could not show the QRIS code: ') + esc(e.message), 'error'); return; }
   const { merchantName } = await import('./qris.js');
+  const fee = Number(data.biaya || 0), tot = Number(data.total || (data.harga + fee));
   const ref = String(data.id).slice(0, 8).toUpperCase();
   const pack = state.packages.find((x) => x.nama === data.nama) || { nama: data.nama };
   openModal(`
-    <h3>${L('Bayar', 'Pay')} ${rupiah(data.harga)}</h3>
+    <h3>${L('Bayar', 'Pay')} ${rupiah(tot)}</h3>
     <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${data.kredit} ${L('kredit', 'credits')} · ${L('kode', 'code')} <span class="mono">${ref}</span></p>
     ${data.sandbox ? notice(L('Mode uji coba: tidak bisa dibayar dengan uang sungguhan.', 'Test mode: cannot be paid with real money.'), 'warn') : ''}
     ${data.sandbox && data.qr_url ? `<div class="va-open"><span class="small">${L('Untuk simulator Midtrans: salin link gambar QR, lalu tempel di QRIS Simulator.', 'For the Midtrans simulator: copy the QR image link and paste it into the QRIS Simulator.')}</span><button class="btn btn-secondary btn-sm" id="tpQrUrl">${L('Salin link QR', 'Copy QR link')}</button></div>` : ''}
     <div class="qris-box"><div class="qris">${svg}</div>
-      <div class="qris-meta"><b>${esc(merchantName(data.qr_string) || 'BNW Lab')}</b><span class="mono">${rupiah(data.harga)}</span></div></div>
+      <div class="qris-meta"><b>${esc(merchantName(data.qr_string) || 'BNW Lab')}</b><span class="mono">${rupiah(tot)}</span></div></div>
+    ${fee ? `<p class="xs muted" style="margin:-4px 0 0;text-align:center">${L(`Harga paket ${rupiah(data.harga)} + biaya layanan QRIS 0,7% ${rupiah(fee)}`, `Pack price ${rupiah(data.harga)} + 0.7% QRIS service fee ${rupiah(fee)}`)}</p>` : ''}
     <ol class="qris-steps small">
       <li>${L('Buka GoPay, OVO, DANA, ShopeePay, atau m-banking, lalu scan QRIS ini. Di HP: simpan gambar QR, lalu pilih dari galeri di aplikasi pembayaran.', 'Open GoPay, OVO, DANA, ShopeePay or your banking app and scan this QRIS. On a phone: save the QR image, then pick it from your gallery in the payment app.')}</li>
-      <li>${L(`Nominal <b>${rupiah(data.harga)}</b> sudah terisi. Bayar.`, `The amount <b>${rupiah(data.harga)}</b> is filled in. Pay.`)}</li>
+      <li>${L(`Nominal <b>${rupiah(tot)}</b> sudah terisi. Bayar.`, `The amount <b>${rupiah(tot)}</b> is filled in. Pay.`)}</li>
       <li>${L('Selesai. Kredit masuk otomatis beberapa detik setelah pembayaran, tanpa perlu konfirmasi.', 'Done. Credits are added automatically a few seconds after you pay, no confirmation needed.')}</li>
     </ol>
     <div class="mt-live" id="tpLive" aria-live="polite"><span class="spin"></span><span id="tpLiveText"></span></div>
