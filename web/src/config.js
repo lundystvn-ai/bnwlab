@@ -22,5 +22,10 @@ const defaults = {
   kontakEmail: '',
 };
 
+// Customer contact goes through Instagram only.
+export const IG_USER = 'bnwlab.studio';
+export const IG_URL = `https://www.instagram.com/${IG_USER}`;
+export const IG_DM = `https://ig.me/m/${IG_USER}`;
+
 export const cfg = { ...defaults, ...(store.get('cfg') || {}) };
 export const usingBrowserOverride = !!store.get('cfg');

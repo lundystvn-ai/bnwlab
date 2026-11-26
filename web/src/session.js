@@ -1,6 +1,6 @@
 // Who is signed in, their role, region and credit balance. Sign-in / sign-up / reset dialogs.
 import { db, onAfterInvoke } from './supa.js';
-import { cfg } from './config.js';
+import { cfg, IG_DM } from './config.js';
 import { $, esc, rupiah, openModal, closeModal, notice } from './util.js';
 import { leakedCount, leakedMessage } from './pwned.js';
 import { L, tr, pkgName, pkgNote } from './i18n.js';
@@ -181,10 +181,6 @@ export async function loadSettings() {
   }
 }
 
-const waLink = (text) => {
-  const wa = String(cfg.kontakWhatsApp || '').replace(/\D/g, '');
-  return wa ? `https://wa.me/${wa}?text=${encodeURIComponent(text)}` : '';
-};
 
 export async function topupDialog(reason = '') {
   if (!state.user) { authDialog('daftar', '', () => topupDialog(reason)); return; }
@@ -210,7 +206,7 @@ async function startTopup(packId, btn) {
   btn.disabled = true;
   let { data, error } = await db.rpc('create_topup', { p_package: packId });
   btn.disabled = false;
-  let offline = false;   // database not upgraded yet: still show the QRIS, confirm by WhatsApp
+  let offline = false;   // database not upgraded yet: still show the QRIS, confirm by Instagram DM
   if (error && /function .* does not exist|Could not find the function|schema cache/i.test(error.message)) {
     const p = state.packages.find((x) => x.id === packId);
     if (p) { data = { id: 'manual-' + Date.now().toString(36), package: p.id, nama: p.nama, kredit: p.kredit, harga: p.harga }; error = null; offline = true; }
@@ -247,14 +243,13 @@ async function startTopup(packId, btn) {
       const r = await db.rpc('claim_topup', { p_id: data.id });
       if (r.error) { b.disabled = false; $('tpMsg').innerHTML = notice(esc(tr(r.error.message)), 'error'); return; }
     }
-    const wa = waLink(`Halo, saya sudah bayar QRIS ${rupiah(data.harga)} untuk paket ${data.nama} (kode ${ref}). Email: ${state.user.email}`);
     openModal(`
       <h3>${L('Terima kasih!', 'Thank you!')}</h3>
       ${notice(offline
         ? L(`Kirim bukti pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) ke admin. <b>${data.kredit} kredit</b> ditambahkan setelah dicek.`, `Send the payment proof for <b>${rupiah(data.harga)}</b> (code <span class="mono">${ref}</span>) to the admin. <b>${data.kredit} credits</b> are added once checked.`)
         : L(`Pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) sedang dicek admin. <b>${data.kredit} kredit</b> masuk otomatis setelah dikonfirmasi.`, `Your payment of <b>${rupiah(data.harga)}</b> (code <span class="mono">${ref}</span>) is being checked by the admin. <b>${data.kredit} credits</b> are added as soon as it is confirmed.`), 'ok')}
       <p class="muted small">${L('Biasanya tidak lama. Saldo diperbarui sendiri saat kamu kembali ke halaman ini.', 'This usually doesn\'t take long. Your balance updates by itself when you come back to this page.')}</p>
-      <div class="modal-actions">${wa ? `<a class="btn btn-secondary" href="${esc(wa)}" target="_blank" rel="noopener">${L('Kirim bukti via WhatsApp', 'Send proof via WhatsApp')}</a>` : ''}<button class="btn btn-primary" data-close>${L('Selesai', 'Done')}</button></div>`);
+      <div class="modal-actions"><a class="btn btn-secondary" href="${IG_DM}" target="_blank" rel="noopener">${L('Kirim bukti via Instagram', 'Send proof via Instagram')}</a><button class="btn btn-primary" data-close>${L('Selesai', 'Done')}</button></div>`);
   };
 }
 

@@ -1,15 +1,14 @@
 // Kebijakan Privasi and Syarat & Ketentuan (Indonesian + English), public pages.
 import { L } from './i18n.js';
-import { cfg } from './config.js';
+import { IG_URL } from './config.js';
 import { esc } from './util.js';
 
 const UPDATED = { id: '26 November 2026', en: '26 November 2026' };
 
 const contact = () => {
-  const wa = String(cfg.kontakWhatsApp || '').replace(/\D/g, '');
   return L(
-    `Hubungi kami lewat halaman <a href="#support">Support</a>${wa ? `, WhatsApp <a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">+${esc(wa)}</a>` : ''}, atau Instagram <a href="https://www.instagram.com/bnwlab.studio" target="_blank" rel="noopener">@bnwlab.studio</a>.`,
-    `Contact us through the <a href="#support">Support</a> page${wa ? `, WhatsApp <a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">+${esc(wa)}</a>` : ''}, or Instagram <a href="https://www.instagram.com/bnwlab.studio" target="_blank" rel="noopener">@bnwlab.studio</a>.`);
+    `Hubungi kami lewat halaman <a href="#support">Support</a> atau DM Instagram <a href="${IG_URL}" target="_blank" rel="noopener">@bnwlab.studio</a>.`,
+    `Contact us through the <a href="#support">Support</a> page or an Instagram DM to <a href="${IG_URL}" target="_blank" rel="noopener">@bnwlab.studio</a>.`);
 };
 
 function privacy() {
@@ -25,7 +24,7 @@ function privacy() {
           <li><b>Data kredit dan pembayaran:</b> paket yang dibeli, nominal, kode pembayaran, status, dan waktunya. Pembayaran QRIS dilakukan di aplikasi e-wallet atau m-banking Anda sendiri, jadi kami <b>tidak</b> menerima atau menyimpan nomor rekening, kartu, atau PIN.</li>
           <li><b>Riwayat unduhan:</b> nama file, jenis proses (misalnya raster bulat + knockout), ukuran gambar dalam piksel, pilihan warna kaos, dan waktu unduh.</li>
           <li><b>Riwayat upscale:</b> nama file, skala, jenis gambar, status, dan link hasil.</li>
-          <li><b>Pesan Support:</b> isi pesan, topik, dan nomor WhatsApp bila Anda mengisinya.</li>
+          <li><b>Pesan Support:</b> isi pesan, topik, dan username Instagram bila Anda mengisinya.</li>
           <li><b>Penyimpanan di browser:</b> sesi login, pilihan tema, dan pilihan bahasa disimpan di browser Anda (local storage). Kami tidak memakai cookie iklan atau pelacak pihak ketiga.</li>
         </ul>`, `
         <ul>
@@ -33,7 +32,7 @@ function privacy() {
           <li><b>Credit and payment data:</b> the pack you bought, the amount, payment code, status and time. QRIS payments are made in your own e-wallet or banking app, so we do <b>not</b> receive or store account numbers, card numbers or PINs.</li>
           <li><b>Download history:</b> file name, operation (for example round raster + knockout), image size in pixels, shirt colour preview and time.</li>
           <li><b>Upscale history:</b> file name, scale, image type, status and result link.</li>
-          <li><b>Support messages:</b> the message, its topic, and your WhatsApp number if you give it.</li>
+          <li><b>Support messages:</b> the message, its topic, and your Instagram username if you give it.</li>
           <li><b>Browser storage:</b> your sign-in session, theme and language are kept in your browser (local storage). We use no advertising cookies or third-party trackers.</li>
         </ul>`)],
       [L('2. Gambar Anda', '2. Your images'), L(`

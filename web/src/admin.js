@@ -160,7 +160,7 @@ export function mount(host) {
     if (!data?.length) { list.innerHTML = '<div class="empty">Tidak ada pesan.</div>'; return; }
     list.innerHTML = data.map((t) => {
       const st = TICKET_STATUS[t.status] || [t.status, ''];
-      const wa = String(t.whatsapp || '').replace(/\D/g, '').replace(/^0/, '62');
+      const ig = String(t.instagram || '').replace(/[^A-Za-z0-9._]/g, '');
       return `<article class="ticket" data-t="${esc(t.id)}">
         <div class="row" style="flex-wrap:wrap"><b>${esc(t.username || '-')}</b><span class="xs muted">${esc(t.email || '')}</span><span class="badge">${esc(TOPICS[t.topik] || t.topik)}</span><span class="badge ${st[1]}">${st[0]}</span><span class="grow"></span><span class="xs subtle">${esc(fmtDate(t.created_at))}</span></div>
         <div class="msg">${esc(t.pesan)}</div>
@@ -168,7 +168,7 @@ export function mount(host) {
         <div class="row" style="flex-wrap:wrap">
           <select data-st aria-label="Status">${Object.entries(TICKET_STATUS).map(([k, v]) => `<option value="${k}"${k === t.status ? ' selected' : ''}>${v[0]}</option>`).join('')}</select>
           <button class="btn btn-primary" data-save>Simpan</button>
-          ${wa ? `<a class="btn btn-secondary" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">${icon('chat', 'i i-sm')}WhatsApp ${esc(t.whatsapp)}</a>` : ''}
+          ${ig ? `<a class="btn btn-secondary" href="https://ig.me/m/${esc(ig)}" target="_blank" rel="noopener">${icon('chat', 'i i-sm')}Instagram @${esc(ig)}</a>` : ''}
           ${t.email ? `<a class="btn btn-quiet" href="mailto:${esc(t.email)}">Email</a>` : ''}
         </div>
       </article>`;
@@ -305,12 +305,6 @@ export function mount(host) {
           <div class="qr-preview" id="qrPrev">${await preview(cfg.qrisStatic)}</div>
         </section>
       </div>
-      <section class="card stack" style="margin-top:16px">
-        <h2 style="margin:0;font-size:var(--text-lg)">WhatsApp admin</h2>
-        <p class="small muted" style="margin:0">Dipakai untuk tombol "Kirim bukti via WhatsApp" setelah pembeli membayar. Kosongkan untuk menyembunyikan.</p>
-        <form id="waForm" class="row" style="flex-wrap:wrap;align-items:flex-end"><div class="field grow" style="min-width:220px"><label for="waNum">Nomor WhatsApp</label><input id="waNum" inputmode="tel" placeholder="62812xxxxxxx" value="${esc(cfg.kontakWhatsApp || '')}"></div><button class="btn btn-primary btn-lg" type="submit">Simpan</button></form>
-        <div id="waMsg"></div>
-      </section>
       <section class="card stack" style="margin-top:16px" id="tgBox"><div class="empty">Memuat…</div></section>`;
     telegramBox();
     let pending = null;
@@ -338,14 +332,6 @@ export function mount(host) {
       const { error } = await db.rpc('admin_set_setting', { p_key: 'qris_static', p_value: p });
       if (error) { $('qrMsg').innerHTML = notice(missingFn(error) ? MIGRATION_NOTE : esc(error.message), 'error'); return; }
       cfg.qrisStatic = p; pending = null; $('qrMsg').innerHTML = notice('QRIS disimpan. Pembayaran berikutnya memakai QRIS ini.', 'ok');
-    };
-    $('waForm').onsubmit = async (e) => {
-      e.preventDefault();
-      const v = $('waNum').value.replace(/\D/g, '').replace(/^0/, '62');
-      if (v && !/^62\d{8,13}$/.test(v)) { $('waMsg').innerHTML = notice('Nomor harus seperti 62812xxxxxxx.', 'error'); return; }
-      const { error } = await db.rpc('admin_set_setting', { p_key: 'kontak_whatsapp', p_value: v });
-      if (error) { $('waMsg').innerHTML = notice(missingFn(error) ? MIGRATION_NOTE : esc(error.message), 'error'); return; }
-      cfg.kontakWhatsApp = v; $('waNum').value = v; $('waMsg').innerHTML = notice(v ? 'Nomor WhatsApp disimpan.' : 'Tombol WhatsApp disembunyikan.', 'ok');
     };
   }
 

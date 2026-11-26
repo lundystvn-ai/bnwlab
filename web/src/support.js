@@ -1,6 +1,6 @@
-// Support: quick contact (WhatsApp), common problems, and tickets that the admin answers on this page.
+// Support: quick contact (Instagram DM), common problems, and tickets that the admin answers on this page.
 import { db } from './supa.js';
-import { cfg } from './config.js';
+import { IG_DM, IG_USER } from './config.js';
 import { $, esc, icon, notice, fmtDate } from './util.js';
 import { state, authDialog } from './session.js';
 import { L, lang } from './i18n.js';
@@ -26,8 +26,6 @@ const statusLabel = (k) => { const s = TICKET_STATUS[k] || [k, '']; return lang 
 
 export function mount(host) {
   let alive = true;
-  const wa = String(cfg.kontakWhatsApp || '').replace(/\D/g, '');
-  const waHref = wa ? `https://wa.me/${wa}?text=${encodeURIComponent(L('Halo admin BNW Lab, saya butuh bantuan', 'Hi BNW Lab admin, I need help') + (state.user ? ` (${L('akun', 'account')} ${state.user.email})` : '') + '.')}` : '';
 
   host.innerHTML = `
   <div class="page"><div class="page-in" style="max-width:1040px">
@@ -36,8 +34,8 @@ export function mount(host) {
       <div class="stack">
         <section class="card stack">
           <h2 style="margin:0">${L('Hubungi cepat', 'Quick contact')}</h2>
-          ${waHref ? `<a class="btn btn-primary btn-lg btn-block" href="${esc(waHref)}" target="_blank" rel="noopener">${icon('chat', 'i i-sm')}${L('Chat admin via WhatsApp', 'Chat with the admin on WhatsApp')}</a>` : `<p class="small muted" style="margin:0">${L('Kirim pesan lewat form di halaman ini.', 'Send a message with the form on this page.')}</p>`}
-          <a class="btn btn-secondary btn-lg btn-block" href="https://www.instagram.com/bnwlab.studio" target="_blank" rel="noopener">Instagram @bnwlab.studio</a>
+          <a class="btn btn-primary btn-lg btn-block" href="${IG_DM}" target="_blank" rel="noopener">${icon('chat', 'i i-sm')}${L('Chat admin via Instagram', 'Chat with the admin on Instagram')}</a>
+          <p class="xs muted" style="margin:0;text-align:center">${L(`DM ke @${IG_USER}. Sebutkan email akunmu supaya cepat dibantu.`, `DM @${IG_USER}. Include your account email so we can help faster.`)}</p>
           <a class="btn btn-secondary btn-lg btn-block" href="#faq" data-route="faq">${L('Lihat pertanyaan umum (FAQ)', 'Read the FAQ')}</a>
         </section>
         <section class="card stack">
@@ -75,7 +73,7 @@ export function mount(host) {
     <form id="spForm" class="form">
       <div class="field"><label for="spTopic">${L('Topik', 'Topic')}</label><select id="spTopic">${Object.keys(TOPICS).map((k) => `<option value="${k}">${esc(topicLabel(k))}</option>`).join('')}</select></div>
       <div class="field"><label for="spMsg">${L('Pesan', 'Message')}</label><textarea id="spMsg" class="plain" rows="5" minlength="5" maxlength="2000" required placeholder="${L('Ceritakan kendalanya. Untuk pembayaran, sebutkan nominal dan kodenya.', 'Describe the problem. For payments, include the amount and code.')}"></textarea></div>
-      <div class="field"><label for="spWa">${L('Nomor WhatsApp', 'WhatsApp number')} <span class="muted">${L('(opsional, kalau ingin dihubungi)', '(optional, if you want us to contact you)')}</span></label><input id="spWa" inputmode="tel" maxlength="20" placeholder="08xxxxxxxxxx"></div>
+      <div class="field"><label for="spIg">${L('Username Instagram', 'Instagram username')} <span class="muted">${L('(opsional, kalau ingin dihubungi lewat DM)', '(optional, if you want us to DM you)')}</span></label><input id="spIg" maxlength="31" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="@username"></div>
       <div id="spNotice" aria-live="polite"></div>
       <button class="btn btn-primary btn-lg" type="submit" id="spSend">${icon('chat', 'i i-sm')}${L('Kirim pesan', 'Send message')}</button>
     </form>`;
@@ -83,14 +81,14 @@ export function mount(host) {
   $('spForm').onsubmit = async (e) => {
     e.preventDefault();
     const pesan = $('spMsg').value.trim();
-    const waNum = $('spWa').value.replace(/[^\d+ -]/g, '').trim();
+    const ig = $('spIg').value.trim().replace(/^@/, '');
     if (pesan.length < 5) { $('spNotice').innerHTML = notice(L('Pesan terlalu pendek.', 'The message is too short.'), 'error'); return; }
-    if (waNum && !/^[0-9+ -]{8,20}$/.test(waNum)) { $('spNotice').innerHTML = notice(L('Nomor WhatsApp tidak valid.', 'Invalid WhatsApp number.'), 'error'); return; }
+    if (ig && !/^[A-Za-z0-9._]{1,30}$/.test(ig)) { $('spNotice').innerHTML = notice(L('Username Instagram tidak valid.', 'Invalid Instagram username.'), 'error'); return; }
     const btn = $('spSend'); btn.disabled = true;
-    const { error } = await db.from('support_tickets').insert({ user_id: state.user.id, topik: $('spTopic').value, pesan, whatsapp: waNum || null });
+    const { error } = await db.from('support_tickets').insert({ user_id: state.user.id, topik: $('spTopic').value, pesan, instagram: ig || null });
     btn.disabled = false;
     if (error) {
-      $('spNotice').innerHTML = notice(/too_many_tickets/.test(error.message) ? L('Kamu sudah mengirim 5 pesan dalam 24 jam. Tunggu balasan admin dulu, atau chat lewat WhatsApp.', 'You have sent 5 messages in 24 hours. Please wait for a reply, or chat on WhatsApp.') : L('Pesan gagal dikirim: ', 'Could not send the message: ') + esc(error.message), 'error');
+      $('spNotice').innerHTML = notice(/too_many_tickets/.test(error.message) ? L('Kamu sudah mengirim 5 pesan dalam 24 jam. Tunggu balasan admin dulu, atau DM kami di Instagram.', 'You have sent 5 messages in 24 hours. Please wait for a reply, or DM us on Instagram.') : L('Pesan gagal dikirim: ', 'Could not send the message: ') + esc(error.message), 'error');
       return;
     }
     $('spMsg').value = '';
