@@ -204,11 +204,15 @@ export async function topupDialog(reason = '') {
 
 async function startTopup(packId, btn) {
   btn.disabled = true;
-  const { data, error } = await db.rpc('create_topup', { p_package: packId });
+  let { data, error } = await db.rpc('create_topup', { p_package: packId });
   btn.disabled = false;
+  let offline = false;   // database not upgraded yet: still show the QRIS, confirm by WhatsApp
+  if (error && /function .* does not exist|Could not find the function|schema cache/i.test(error.message)) {
+    const p = state.packages.find((x) => x.id === packId);
+    if (p) { data = { id: 'manual-' + Date.now().toString(36), package: p.id, nama: p.nama, kredit: p.kredit, harga: p.harga }; error = null; offline = true; }
+  }
   if (error) {
-    const m = /too_many_pending/.test(error.message) ? 'Terlalu banyak pembayaran yang belum selesai. Selesaikan atau batalkan dulu.'
-      : /function .* does not exist|Could not find the function/i.test(error.message) ? 'Pembayaran QRIS belum diaktifkan oleh admin.' : esc(error.message);
+    const m = /too_many_pending/.test(error.message) ? 'Terlalu banyak pembayaran yang belum selesai. Selesaikan atau batalkan dulu.' : esc(error.message);
     $('tpMsg').innerHTML = notice(m, 'error'); return;
   }
   let payload, svg;
@@ -219,7 +223,7 @@ async function startTopup(packId, btn) {
     svg = await QR.toString(payload, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#000000', light: '#ffffff' } });
   } catch (e) { $('tpMsg').innerHTML = notice('QRIS tidak dapat dibuat: ' + esc(e.message), 'error'); return; }
   const { merchantName } = await import('./qris.js');
-  const ref = String(data.id).slice(0, 8).toUpperCase();
+  const ref = offline ? data.id.slice(-6).toUpperCase() : String(data.id).slice(0, 8).toUpperCase();
   openModal(`
     <h3>Bayar ${rupiah(data.harga)}</h3>
     <p class="muted">Paket <b>${esc(data.nama)}</b> · ${data.kredit} kredit · kode <span class="mono">${ref}</span></p>
@@ -232,15 +236,19 @@ async function startTopup(packId, btn) {
     </ol>
     <div id="tpMsg"></div>
     <div class="modal-actions"><button class="btn btn-quiet" id="tpCancel">Batal</button><button class="btn btn-primary btn-lg" id="tpPaid">Saya sudah bayar</button></div>`, { wide: false });
-  $('tpCancel').onclick = async () => { await db.rpc('cancel_topup', { p_id: data.id }); closeModal(); };
+  $('tpCancel').onclick = async () => { if (!offline) await db.rpc('cancel_topup', { p_id: data.id }); closeModal(); };
   $('tpPaid').onclick = async () => {
     const b = $('tpPaid'); b.disabled = true;
-    const r = await db.rpc('claim_topup', { p_id: data.id });
-    if (r.error) { b.disabled = false; $('tpMsg').innerHTML = notice(esc(r.error.message), 'error'); return; }
+    if (!offline) {
+      const r = await db.rpc('claim_topup', { p_id: data.id });
+      if (r.error) { b.disabled = false; $('tpMsg').innerHTML = notice(esc(r.error.message), 'error'); return; }
+    }
     const wa = waLink(`Halo, saya sudah bayar QRIS ${rupiah(data.harga)} untuk paket ${data.nama} (kode ${ref}). Email: ${state.user.email}`);
     openModal(`
       <h3>Terima kasih!</h3>
-      ${notice(`Pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) sedang dicek admin. <b>${data.kredit} kredit</b> masuk otomatis setelah dikonfirmasi.`, 'ok')}
+      ${notice(offline
+        ? `Kirim bukti pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) ke admin. <b>${data.kredit} kredit</b> ditambahkan setelah dicek.`
+        : `Pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) sedang dicek admin. <b>${data.kredit} kredit</b> masuk otomatis setelah dikonfirmasi.`, 'ok')}
       <p class="muted small">Biasanya tidak lama. Saldo diperbarui sendiri saat kamu kembali ke halaman ini.</p>
       <div class="modal-actions">${wa ? `<a class="btn btn-secondary" href="${esc(wa)}" target="_blank" rel="noopener">Kirim bukti via WhatsApp</a>` : ''}<button class="btn btn-primary" data-close>Selesai</button></div>`);
   };
