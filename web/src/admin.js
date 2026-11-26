@@ -107,7 +107,8 @@ export function mount(host) {
           <form class="stack" id="mtForm">
             <div class="field"><label for="mtMode">Mode</label><select id="mtMode"><option value="sandbox"${st.mode !== 'production' ? ' selected' : ''}>Sandbox (uji coba, tanpa uang sungguhan)</option><option value="production"${st.mode === 'production' ? ' selected' : ''}>Production (pembayaran sungguhan)</option></select></div>
             <div class="field"><label for="mtKey">Server Key ${st.configured ? '<span class="muted">(kosongkan kalau tidak diganti)</span>' : ''}</label><input id="mtKey" type="password" autocomplete="off" spellcheck="false" placeholder="${st.mode === 'production' ? 'Mid-server-…' : 'SB-Mid-server-…'}"></div>
-            <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" type="submit">Simpan</button><button class="btn btn-secondary" type="button" id="mtTest"${st.configured ? '' : ' disabled'}>Tes koneksi</button></div>
+            <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" type="submit">Simpan</button><button class="btn btn-secondary" type="button" id="mtTest"${st.configured ? '' : ' disabled'}>Tes koneksi</button><button class="btn btn-secondary" type="button" id="mtTry"${st.configured ? '' : ' disabled'}>Coba bayar (admin)</button></div>
+            <p class="xs muted" style="margin:0">"Coba bayar" membuat QRIS sungguhan dari Midtrans untuk akun admin ini saja, walaupun pembeli masih memakai QRIS manual. Kredit dari uji coba masuk ke akun admin.</p>
           </form>
           <div id="mtMsg"></div>
         </div>
@@ -124,9 +125,10 @@ export function mount(host) {
       </div>
       <div class="row" style="flex-wrap:wrap;border-top:1px solid var(--color-border);padding-top:12px">
         <span class="small">Cara bayar yang dilihat pembeli:</span>
-        <div class="seg" role="radiogroup" id="mtPay" style="min-width:300px"><button role="radio" data-m="manual" aria-checked="${!auto}">QRIS manual (konfirmasi admin)</button><button role="radio" data-m="midtrans" aria-checked="${auto}"${st.configured ? '' : ' disabled'}>Otomatis (Midtrans)</button></div>
+        <div class="seg" role="radiogroup" id="mtPay" style="min-width:300px"><button role="radio" data-m="manual" aria-checked="${!auto}">QRIS manual (konfirmasi admin)</button><button role="radio" data-m="midtrans" aria-checked="${auto}"${st.configured && st.mode === 'production' ? '' : ' disabled'}>Otomatis (Midtrans)</button></div>
       </div>
-      ${auto && st.mode !== 'production' ? notice('Mode Sandbox sedang aktif untuk pembeli: QRIS tidak bisa dibayar dengan uang sungguhan. Ganti ke Production setelah akun Midtrans terverifikasi, atau kembali ke QRIS manual.', 'warn') : ''}`;
+      ${st.mode !== 'production' ? `<p class="xs muted" style="margin:0">Mode Sandbox hanya untuk uji coba admin (QRIS Sandbox bisa "dibayar" lewat simulator tanpa uang). Pilihan <b>Otomatis</b> untuk pembeli bisa dinyalakan setelah mode Production.</p>` : ''}
+      ${auto && st.mode !== 'production' ? notice('Pembeli sedang diarahkan ke pembayaran otomatis, tetapi mode masih Sandbox, jadi pembayaran mereka akan ditolak. Kembalikan ke QRIS manual sampai mode Production siap.', 'error') : ''}`;
     $('mtCopy').onclick = async () => { try { await navigator.clipboard.writeText(st.webhook); toast('URL disalin.'); } catch { $('mtHook').select(); } };
     $('mtForm').onsubmit = async (e) => {
       e.preventDefault();
@@ -140,6 +142,7 @@ export function mount(host) {
       catch (err) { $('mtMsg').innerHTML = notice(esc(err.message), 'error'); }
       finally { b.disabled = false; }
     };
+    $('mtTry').onclick = async () => { const { topupDialog } = await import('./session.js'); topupDialog('Uji coba pembayaran otomatis (khusus admin).', { midtrans: true }); };
     $('mtPay').onclick = async (e) => {
       const b = e.target.closest('[data-m]'); if (!b || b.disabled || b.getAttribute('aria-checked') === 'true') return;
       const m = b.dataset.m;

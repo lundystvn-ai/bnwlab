@@ -183,8 +183,8 @@ export async function loadSettings() {
 }
 
 
-export async function topupDialog(reason = '') {
-  if (!state.user) { authDialog('daftar', '', () => topupDialog(reason)); return; }
+export async function topupDialog(reason = '', opts = {}) {
+  if (!state.user) { authDialog('daftar', '', () => topupDialog(reason, opts)); return; }
   const mine = await db.from('payments').select('id,package_id,kredit,jumlah,status,claimed_at,created_at').eq('user_id', state.user.id).order('created_at', { ascending: false }).limit(5);
   const waiting = (mine.data || []).filter((p) => p.status === 'pending' && p.claimed_at);
   openModal(`
@@ -200,11 +200,11 @@ export async function topupDialog(reason = '') {
       </button>`).join('')}</div>
     <p class="muted small">${L('Bayar dengan QRIS dari e-wallet atau m-banking apa pun. Kredit tidak hangus.', 'Pay with QRIS from any Indonesian e-wallet or mobile banking app. Credits never expire.')}</p>
     <div id="tpMsg"></div>`);
-  document.querySelectorAll('[data-pack]').forEach((b) => (b.onclick = () => startTopup(b.dataset.pack, b)));
+  document.querySelectorAll('[data-pack]').forEach((b) => (b.onclick = () => startTopup(b.dataset.pack, b, opts)));
 }
 
-async function startTopup(packId, btn) {
-  if (cfg.payMode === 'midtrans') return midtransTopup(packId, btn);
+async function startTopup(packId, btn, opts = {}) {
+  if (cfg.payMode === 'midtrans' || opts.midtrans) return midtransTopup(packId, btn);
   btn.disabled = true;
   let { data, error } = await db.rpc('create_topup', { p_package: packId });
   btn.disabled = false;
