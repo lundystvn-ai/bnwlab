@@ -24,7 +24,7 @@ export function renderLanding(view) {
           <a class="btn btn-primary btn-xl" href="#cek" data-route="cek">${icon('check', 'i i-sm')}${L('Cek file gratis', 'Check a file free')}</a>
           <button class="btn btn-secondary btn-xl" data-cta>${L('Coba buat desain halftone', 'Try a halftone design')}</button>
         </div>
-        <p class="fine small muted">${L('Cek file tanpa daftar. Daftar dan dapat <b>5 kredit gratis</b> untuk mencoba unduhan.', 'No sign-up needed to check a file. Sign up and get <b>5 free credits</b> to try downloads.')}</p>
+        <p class="fine small muted">${L('Semua alat bisa dicoba tanpa daftar. Daftar saat mau mengunduh, dan dapat <b>5 kredit gratis</b>.', 'Try every tool without signing up. Sign up when you want to download, and get <b>5 free credits</b>.')}</p>
       </div>
       <div class="compare" id="heroCompare" aria-label="${L('Contoh sebelum dan sesudah raster', 'Before and after raster example')}">
         <img class="before" src="/sample-before.jpg" alt="" draggable="false">

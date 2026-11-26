@@ -7,7 +7,7 @@ import { lang, L, setLang } from './i18n.js';
 import { track, excludeThisDevice } from './track.js';
 
 const APP_ROUTES = ['editor', 'vektor', 'upscale', 'kredit', 'admin', 'support', 'cek'];
-const OPEN_ROUTES = ['support', 'cek', 'vektor'];   // app pages that guests may open too
+const OPEN_ROUTES = ['support', 'cek', 'vektor', 'editor', 'upscale'];   // app pages that guests may open too
 const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];
 const LEGAL_ROUTES = ['privasi', 'ketentuan'];
 const BASE_TITLE = document.title;
@@ -51,7 +51,7 @@ async function render() {
       : route === 'cek' ? await import('./check.js')
       : route === 'vektor' ? await import('./vector.js')
       : await import('./admin.js');
-    unmount = mod.mount(host) || null;
+    unmount = mod.mount(host) || null; currentMod = mod;
     if (isAdmin()) Promise.all([db.rpc('admin_stats'), db.from('support_tickets').select('id', { count: 'exact', head: true }).eq('status', 'baru')])
       .then(([{ data }, { count }]) => { const c = $('menuCount'), t = (data?.waiting || 0) + (count || 0); if (c) { c.hidden = !t; c.textContent = String(t); } });
     return;
@@ -87,12 +87,17 @@ function syncHeader() {
 onSession(syncHeader);
 // Re-draw the app (and its admin menu) whenever the signed-in account or its role changes,
 // so the Admin menu never lingers for a non-admin account.
-let lastAccess = '';
+// A guest who signs in on Halftone or Upscale keeps the work on screen: those pages refresh their
+// account parts themselves (onSignIn) instead of being rebuilt.
+let lastAccess = '', currentMod = null;
 onSession(() => {
   const access = state.user ? state.user.id + ':' + (state.profile?.user_role || '') : '';
   if (access === lastAccess) return;
+  const wasGuest = !lastAccess;
   lastAccess = access;
-  if (current && current !== 'landing') { unmount?.(); unmount = null; current = null; render(); }
+  if (!current || current === 'landing') return;
+  if (wasGuest && state.user && !isAdmin() && currentMod?.onSignIn?.()) return;
+  unmount?.(); unmount = null; current = null; render();
 });
 
 function syncTheme() {
@@ -119,7 +124,7 @@ document.addEventListener('dragstart', (e) => { if (e.target.closest('canvas')) 
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-close]')) closeModal();
   if (e.target.closest('[data-topup]')) { if (state.user) topupDialog(); else authDialog('daftar', '', () => topupDialog()); }
-  if (e.target.closest('[data-cta]')) { if (state.user) go('editor'); else authDialog('daftar', '', () => go('editor')); }
+  if (e.target.closest('[data-cta]')) go('editor');
   const r = e.target.closest('[data-route]');
   if (r && r.tagName === 'A') { e.preventDefault(); go(r.dataset.route); }
 });

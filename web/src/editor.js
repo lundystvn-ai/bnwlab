@@ -16,6 +16,10 @@ const opLabel = (op) => {
   return lang === 'en' ? l.replace('Perbaikan file', 'File cleanup').replace('Raster Bulat', 'Round Raster').replace('Raster Garis', 'Line Raster').replace('Warna', 'Colour') : l;
 };
 
+// Set while the page is open: refreshes the account parts after a guest signs in (see main.js).
+let signInHook = null;
+export function onSignIn() { if (!signInHook) return false; signInHook(); return true; }
+
 export function mount(host) {
   host.innerHTML = `
   <div class="editor" id="ed">
@@ -427,10 +431,15 @@ export function mount(host) {
     show(); say('');
   };
 
-  // ---------- download: 1 credit, then history row ----------
+  // ---------- download: 2 credits, then history row ----------
   let downloading = false;
   els.dl.onclick = async () => {
     if (downloading || !S.B || S.s === 'original') return;
+    if (!state.user) {
+      say(T('Masuk atau daftar dulu untuk mengunduh. Hasilmu tetap di sini. Akun baru dapat 5 kredit gratis.', 'Sign in or sign up to download. Your work stays here. New accounts get 5 free credits.'), 'warn');
+      authDialog('daftar', '', () => els.dl.click());
+      return;
+    }
     downloading = true; els.dl.disabled = true;
     try {
       const { data, error } = await db.rpc('consume_credit', { p_ref: uuid() });
@@ -471,7 +480,9 @@ export function mount(host) {
   }));
   $('histRefresh').onclick = loadHist;
   async function loadHist() {
-    const box = $('histList'); box.innerHTML = `<div class="empty">${T('Memuat…', 'Loading…')}</div>`;
+    const box = $('histList');
+    if (!state.user) { box.innerHTML = `<div class="empty">${T('Masuk untuk melihat riwayat unduhanmu.', 'Sign in to see your download history.')}</div>`; return; }
+    box.innerHTML = `<div class="empty">${T('Memuat…', 'Loading…')}</div>`;
     let q = db.from('halftone_image_history').select('id,file_name,operation,image_width,image_height,garment_color,created_at,username').order('created_at', { ascending: false }).limit(20);
     if (!isAdmin()) q = q.eq('user_id', state.user.id);
     const { data, error } = await q;
@@ -497,7 +508,9 @@ export function mount(host) {
   const handed = takeHandoff();
   if (handed) loadFile(handed);
 
+  signInHook = () => { controls(); if (!$('tabHist').hidden) loadHist(); };
   return () => {
+    signInHook = null;
     S.job?.cancel(); ro.disconnect();
     document.removeEventListener('paste', onPaste); document.removeEventListener('keydown', onKey);
     if (S.blobUrl) URL.revokeObjectURL(S.blobUrl);

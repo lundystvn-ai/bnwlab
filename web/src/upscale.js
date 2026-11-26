@@ -2,13 +2,17 @@
 // history row → upload to bigjpg-inputs → start → poll every 5 s (max 30 min) → result link.
 import { db, invoke } from './supa.js';
 import { $, esc, icon, notice, uuid, fmtDate, num } from './util.js';
-import { state, isAdmin, regionId, regionTz, regionName, refreshCredits } from './session.js';
+import { state, isAdmin, regionId, regionTz, regionName, refreshCredits, authDialog } from './session.js';
 import { L, tr } from './i18n.js';
 
 const BUCKET = 'bigjpg-inputs';
 const FN = 'bigjpg-upscale';
 const MAX_POLLS = 360;
 const NOISE = [['-1', L('Tidak ada', 'None')], ['0', L('Rendah', 'Low')], ['1', L('Sedang', 'Medium')], ['2', L('Tinggi', 'High')], ['3', L('Tertinggi', 'Highest')]];
+
+// Set while the page is open: refreshes the account parts after a guest signs in (see main.js).
+let signInHook = null;
+export function onSignIn() { if (!signInHook) return false; signInHook(); return true; }
 
 export function mount(host) {
   let costs = { 2: 1, 4: 1, 8: 1, 16: 1 };
@@ -55,7 +59,7 @@ export function mount(host) {
     $('upCost').textContent = `· ${costs[s] ?? '?'} ${L('kredit', costs[s] === 1 ? 'credit' : 'credits')}`;
     document.querySelectorAll('[data-cost]').forEach((el) => (el.textContent = `· ${costs[el.dataset.cost] ?? '?'}`));
   };
-  invoke(FN, { action: 'costs' }).then((r) => { if (r?.costs) { costs = r.costs; updateCost(); } }).catch(() => {});
+  if (state.user) invoke(FN, { action: 'costs' }).then((r) => { if (r?.costs) { costs = r.costs; updateCost(); } }).catch(() => {});
   updateCost();
 
   // file picking
@@ -102,6 +106,11 @@ export function mount(host) {
   $('upForm').onsubmit = async (e) => {
     e.preventDefault();
     if (!file) { say(L('Pilih gambar terlebih dahulu.', 'Choose an image first.'), 'error'); return; }
+    if (!state.user) {
+      say(L('Masuk atau daftar dulu untuk mulai upscale. Gambar dan pengaturanmu tetap di sini. Akun baru dapat 5 kredit gratis.', 'Sign in or sign up to start the upscale. Your image and settings stay here. New accounts get 5 free credits.'), 'warn');
+      authDialog('daftar', '', () => $('upForm')?.requestSubmit());
+      return;
+    }
     if (!String(file.type || '').startsWith('image/')) { say(L('File harus berupa gambar.', 'The file must be an image.'), 'error'); return; }
     if (file.size > 52428800) { say(L('Ukuran gambar maksimal 50 MB.', 'Images can be up to 50 MB.'), 'error'); return; }
     const scale = Number(sel($('upScale')) || 4), style = sel($('upStyle')) || 'art', noise = Number($('upNoise').value || 0);
@@ -212,6 +221,7 @@ export function mount(host) {
     if (!alive) return;
     loadMetrics();
     const box = $('upList'); if (!box) return;
+    if (!state.user) { box.innerHTML = `<div class="empty">${L('Masuk untuk melihat riwayat upscale-mu.', 'Sign in to see your upscale history.')}</div>`; return; }
     let q = db.from('riwayat_bigjpg').select('*').order('created_at', { ascending: false }).limit(isAdmin() ? 500 : 100);
     if (!isAdmin()) q = q.eq('user_id', state.user.id);
     const { data, error } = await q;
@@ -234,7 +244,8 @@ export function mount(host) {
   $('upRefresh').onclick = loadList;
   loadList();
   // Coming back to this page: keep following the newest job that is still running.
-  (async () => {
+  async function resume() {
+    if (!state.user) return;
     const { data } = await db.from('riwayat_bigjpg').select('id,task_id,status,created_at').eq('user_id', state.user.id)
       .in('status', ['processing', 'uploading']).not('bigjpg_tid', 'is', null).gte('created_at', new Date(Date.now() - 864e5).toISOString())
       .order('created_at', { ascending: false }).limit(1);
@@ -243,7 +254,13 @@ export function mount(host) {
     const pr = $('upProgress'); if (pr) pr.dataset.id = String(row.id);
     say(L('Upscale sebelumnya masih diproses. Hasil muncul otomatis di sini.', 'Your previous upscale is still processing. The result will appear here.'), 'warn');
     poll(row.id, String(row.task_id || ''), 0);
-  })();
+  }
+  resume();
 
-  return () => { alive = false; clearTimeout(pollTimer); };
+  // A guest just signed in: show their history and costs without losing the chosen image.
+  signInHook = () => {
+    loadList(); resume();
+    invoke(FN, { action: 'costs' }).then((r) => { if (r?.costs) { costs = r.costs; updateCost(); } }).catch(() => {});
+  };
+  return () => { signInHook = null; alive = false; clearTimeout(pollTimer); };
 }
