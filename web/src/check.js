@@ -1,7 +1,7 @@
 // Cek Gambar / Image Checker: check a DTF file, fix it, upscale it, and download a print-ready PNG.
 // Checking and fixing are free and run in the browser. Upscale = 1 credit, download = 1 credit.
 import * as E from './engine.js';
-import { analyze, dpiFor, thinOverlay, fixHaze, cleanFringe, fixSpecks } from './checker.js';
+import { analyze, dpiFor, thinOverlay, fixHaze, cleanFringe, fixSpecks, removeBackground, removeAt } from './checker.js';
 import { issueText, issueTitle, ISSUE_ICON, summary } from './checktext.js';
 import { giveHandoff } from './handoff.js';
 import { store } from './config.js';
@@ -11,7 +11,7 @@ import { L, tr } from './i18n.js';
 import { state, authDialog, topupDialog, setCredits, refreshCredits, regionId } from './session.js';
 
 // Kept outside the page so the work survives signing in or switching pages.
-const C = { file: null, name: 'image', img: null, orig: null, undo: null, result: null, upscaled: false, busy: '', job: 0, msg: null };
+const C = { bgMode: '', file: null, name: 'image', img: null, orig: null, undo: null, result: null, upscaled: false, busy: '', job: 0, msg: null };
 
 const toImageData = (image) => {
   const r = E.prepareUpload(image, 'image');
@@ -81,7 +81,7 @@ export function mount(host) {
   // ---------- view ----------
   function draw() {
     const c = $('chkCanvas'); if (!c || !C.img) return;
-    c.width = C.img.width; c.height = C.img.height;
+    c.width = C.img.width; c.height = C.img.height; c.style.cursor = C.bgMode && !thinOn ? 'crosshair' : '';
     c.getContext('2d').putImageData(thinOn && C.result ? thinOverlay(C.img, C.result.masks) : C.img, 0, 0);
   }
   function busyUi() {
@@ -134,12 +134,28 @@ export function mount(host) {
     if (!/^image\/(png|jpeg|webp)$/i.test(f.type)) { say(L('Format harus PNG, JPG, atau WebP.', 'The format must be PNG, JPG or WebP.'), 'error'); return; }
     try {
       const img = toImageData(await blobToImage(f));
-      Object.assign(C, { file: f, name: (f.name || 'image').replace(/\.[^.]+$/, '') || 'image', img, orig: img, undo: null, result: null, upscaled: false });
+      Object.assign(C, { file: f, name: (f.name || 'image').replace(/\.[^.]+$/, '') || 'image', img, orig: img, undo: null, result: null, upscaled: false, bgMode: '' });
       say(''); draw(); render(); check();
     } catch (e) { say(esc(e.message), 'error'); }
   }
 
   // ---------- fixes (free, in the browser) ----------
+  const colorName = (bg) => (bg === 'white' ? L('putih', 'white') : L('hitam', 'black'));
+  function bgMsg(bg, pockets, short) {
+    const kept = short ? '' : L(`Latar ${colorName(bg)} dibuang; ${colorName(bg)} di dalam desain tetap aman. `, `The ${bg} background was removed; ${bg} inside the design is kept. `);
+    return kept + (pockets ? L(`Masih ada ${pockets} area ${colorName(bg)} tertutup (misalnya lubang di huruf O atau A). Klik area itu di gambar kalau ingin dibuang juga.`, `${pockets} enclosed ${bg} area${pockets > 1 ? 's are' : ' is'} left (for example the hole in an O or A). Click it on the image if it should go too.`) : '');
+  }
+  // Click an enclosed pocket of the background colour to remove it.
+  function pickAt(e) {
+    if (!C.bgMode || !C.img || C.busy || thinOn) return;
+    const c = $('chkCanvas'), r = c.getBoundingClientRect();
+    const x = Math.floor(((e.clientX - r.left) / r.width) * C.img.width), y = Math.floor(((e.clientY - r.top) / r.height) * C.img.height);
+    if (x < 0 || y < 0 || x >= C.img.width || y >= C.img.height) return;
+    const res = removeAt(C.img, C.bgMode, x, y);
+    if (!res.changed) { say(L(`Titik itu bukan area ${colorName(C.bgMode)}. Klik tepat di area ${colorName(C.bgMode)} yang ingin dibuang.`, `That spot is not ${C.bgMode}. Click right inside the ${C.bgMode} area you want removed.`), 'warn'); return; }
+    setImg(res.img);
+    say(L(`Area dibuang. ${res.pockets ? `Sisa ${res.pockets} area tertutup; klik lagi bila perlu, atau Undo kalau salah.` : 'Tekan Undo kalau salah.'}`, `Area removed. ${res.pockets ? `${res.pockets} enclosed area${res.pockets > 1 ? 's' : ''} left; click again if needed, or Undo if it was a mistake.` : 'Press Undo if it was a mistake.'}`));
+  }
   function runFix(id) {
     if (!C.result || C.busy) return;
     if (id === 'thin') {
@@ -151,7 +167,7 @@ export function mount(host) {
     const cur = C.img;
     if (id === 'background') {
       const bg = C.result.issues.find((i) => i.id === 'background')?.data.bg; if (!bg) return;
-      setImg(E.knockoutBW(cur, bg)); say(L(`Latar ${bg === 'white' ? 'putih' : 'hitam'} dibuang.`, `The ${bg} background was removed.`));
+      const r = removeBackground(cur, bg); C.bgMode = bg; setImg(r.img); say(bgMsg(bg, r.pockets));
     }
     if (id === 'haze') { setImg(fixHaze(cur)); say(L('Piksel setengah transparan dibuat tegas.', 'Semi-transparent pixels were made solid or fully transparent.')); }
     if (id === 'fringe') { setImg(cleanFringe(cur)); say(L('Garis sisa di pinggir objek dibersihkan.', 'The leftover outline on the edges was cleaned.')); }
@@ -161,16 +177,18 @@ export function mount(host) {
     if (!C.result || C.busy) return;
     let d = C.img;
     const bg = C.result.issues.find((i) => i.id === 'background')?.data.bg;
-    if (bg) d = E.knockoutBW(d, bg);
+    let pockets = 0;
+    if (bg) { const r = removeBackground(d, bg); d = r.img; pockets = r.pockets; C.bgMode = bg; }
     d = fixHaze(d);
     d = cleanFringe(d);
     const a = analyze(d, { dpi: dpi(), raster: false, jpeg: false });
     if (a.masks.specks?.count) d = fixSpecks(d, a.masks);
     setImg(d);
-    say(L('Semua yang bisa diperbaiki otomatis sudah diperbaiki. Cek hasilnya, lalu unduh.', 'Everything that can be fixed automatically was fixed. Check the result, then download.'));
+    say(L('Semua yang bisa diperbaiki otomatis sudah diperbaiki. Cek hasilnya, lalu unduh.', 'Everything that can be fixed automatically was fixed. Check the result, then download.') + (bg ? ' ' + bgMsg(bg, pockets, true) : ''));
   };
   $('chkUndo').onclick = () => { if (!C.undo || C.busy) return; C.img = C.undo; C.undo = null; C.result = null; draw(); render(); check(); say(L('Langkah terakhir dibatalkan.', 'The last step was undone.')); };
-  $('chkOrig').onclick = () => { if (!C.orig || C.busy) return; setImg(C.orig); C.upscaled = false; say(L('Kembali ke gambar asli.', 'Back to the original image.')); };
+  $('chkCanvas').addEventListener('click', pickAt);
+  $('chkOrig').onclick = () => { if (!C.orig || C.busy) return; C.bgMode = ''; setImg(C.orig); C.upscaled = false; say(L('Kembali ke gambar asli.', 'Back to the original image.')); };
 
   // ---------- upscale (1 credit, on the server) ----------
   async function upscale() {

@@ -1,5 +1,6 @@
 // Image checker for DTF prints. Everything runs in the browser on the current result (ImageData).
 // analyze() reports problems; the fix functions return new ImageData and never touch the input.
+import { knockoutBW } from './engine.js';
 
 const LO = 13, HI = 242;          // alpha between these = semi-transparent ("white haze" risk)
 const SOLID = 128;                // alpha from here counts as printed ink
@@ -228,4 +229,41 @@ export function cleanFringe(img) {
     if (isWhiteish(d[p], d[p + 1], d[p + 2]) || isBlackish(d[p], d[p + 1], d[p + 2])) d[p + 3] = 0;
   }
   return out;
+}
+
+// ---- background removal that keeps the design ----
+// Only background-coloured pixels connected to the image border are removed (flood fill), so white
+// or black INSIDE the design stays. Enclosed pockets (the hole in an "O") can be removed one by one
+// with removeAt().
+function bgFill(img, bg, seeds, throughClear) {
+  const w = img.width, h = img.height, n = w * h, s = img.data, k = knockoutBW(img, bg).data;
+  const pass = new Uint8Array(n);   // 1 = looks like background, 2 = already transparent
+  for (let i = 0; i < n; i++) { const a = s[i * 4 + 3]; if (a === 0) { if (throughClear) pass[i] = 2; } else if (k[i * 4 + 3] < a) pass[i] = 1; }
+  const seen = new Uint8Array(n), q = new Int32Array(n); let t = 0;
+  for (const i of seeds(pass, w, h)) if (pass[i] && !seen[i]) { seen[i] = 1; q[t++] = i; }
+  for (let hd = 0; hd < t; hd++) {
+    const i = q[hd], x = i % w;
+    if (x > 0 && pass[i - 1] && !seen[i - 1]) { seen[i - 1] = 1; q[t++] = i - 1; }
+    if (x < w - 1 && pass[i + 1] && !seen[i + 1]) { seen[i + 1] = 1; q[t++] = i + 1; }
+    if (i >= w && pass[i - w] && !seen[i - w]) { seen[i - w] = 1; q[t++] = i - w; }
+    if (i + w < n && pass[i + w] && !seen[i + w]) { seen[i + w] = 1; q[t++] = i + w; }
+  }
+  const out = copy(img), d = out.data; let changed = 0;
+  for (let i = 0; i < n; i++) if (seen[i] && pass[i] === 1) { d[i * 4 + 3] = k[i * 4 + 3]; changed++; }
+  // enclosed pockets of the background colour that are left (big enough to matter)
+  const rest = new Uint8Array(n);
+  for (let i = 0; i < n; i++) if (pass[i] === 1 && !seen[i] && s[i * 4 + 3] >= SOLID) rest[i] = 1;
+  const { sizes } = components(rest, w, h), min = Math.max(64, Math.round(n / 4000));
+  let pockets = 0; for (let j = 1; j < sizes.length; j++) if (sizes[j] >= min) pockets++;
+  return { img: out, changed, pockets };
+}
+export function removeBackground(img, bg) {
+  return bgFill(img, bg, function* (pass, w, h) {
+    for (let x = 0; x < w; x++) { yield x; yield (h - 1) * w + x; }
+    for (let y = 0; y < h; y++) { yield y * w; yield y * w + w - 1; }
+  }, true);
+}
+export function removeAt(img, bg, x, y) {
+  const i = y * img.width + x;
+  return bgFill(img, bg, function* (pass) { if (pass[i] === 1) yield i; }, false);
 }
