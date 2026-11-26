@@ -4,7 +4,8 @@ import { $, closeModal, toast } from './util.js';
 import { state, onSession, applySession, clearSession, signOut, authDialog, topupDialog, newPasswordDialog, loadPackages, loadSettings, refreshCredits, isAdmin } from './session.js';
 import { renderLanding, pricing } from './landing.js';
 
-const APP_ROUTES = ['editor', 'upscale', 'kredit', 'admin'];
+const APP_ROUTES = ['editor', 'upscale', 'kredit', 'admin', 'support'];
+const OPEN_ROUTES = ['support'];   // app pages that guests may open too
 const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];
 const view = $('view');
 let current = null;       // current route name
@@ -31,9 +32,9 @@ async function render() {
   document.querySelectorAll('.menu a').forEach((a) => (a.dataset.route === route ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
 
   if (APP_ROUTES.includes(route)) {
-    if (!state.user) { showLanding(); authDialog('masuk', '', () => render()); return; }
+    if (!state.user && !OPEN_ROUTES.includes(route)) { showLanding(); authDialog('masuk', '', () => render()); return; }
     if (route === 'admin' && !isAdmin()) { go('editor'); return; }
-    if (current === route) return;
+    if (current === route && !OPEN_ROUTES.includes(route)) return;
     unmount?.(); unmount = null;
     current = route;
     view.innerHTML = appFrame();
@@ -41,9 +42,11 @@ async function render() {
     const mod = route === 'editor' ? await import('./editor.js')
       : route === 'upscale' ? await import('./upscale.js')
       : route === 'kredit' ? await import('./credits.js')
+      : route === 'support' ? await import('./support.js')
       : await import('./admin.js');
     unmount = mod.mount(host) || null;
-    if (isAdmin()) db.rpc('admin_stats').then(({ data }) => { const c = $('menuCount'); if (c && data?.waiting) { c.hidden = false; c.textContent = String(data.waiting); } });
+    if (isAdmin()) Promise.all([db.rpc('admin_stats'), db.from('support_tickets').select('id', { count: 'exact', head: true }).eq('status', 'baru')])
+      .then(([{ data }, { count }]) => { const c = $('menuCount'), t = (data?.waiting || 0) + (count || 0); if (c) { c.hidden = !t; c.textContent = String(t); } });
     return;
   }
   showLanding();

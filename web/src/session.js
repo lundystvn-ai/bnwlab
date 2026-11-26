@@ -66,8 +66,9 @@ export async function signOut() { await db.auth.signOut(); clearSession(); }
 const redirectTo = () => location.origin + location.pathname;
 
 export function authDialog(mode = 'masuk', email = '', after) {
-  const daftar = mode === 'daftar', link = mode === 'link', lupa = mode === 'lupa', noPass = link || lupa;
-  const title = daftar ? 'Daftar akun' : link ? 'Masuk dengan link email' : lupa ? 'Lupa password' : 'Masuk';
+  if (mode === 'link') mode = 'masuk';
+  const daftar = mode === 'daftar', lupa = mode === 'lupa', noPass = lupa;
+  const title = daftar ? 'Daftar akun' : lupa ? 'Lupa password' : 'Masuk';
   openModal(`
     <div class="modal-logo"><img src="/logo-64.png" alt="BNW Lab" height="28"></div>
     <h3>${title}</h3>
@@ -78,13 +79,12 @@ export function authDialog(mode = 'masuk', email = '', after) {
       <div class="field"><label for="pwEmail">Email</label><input id="pwEmail" type="email" required autocomplete="email" value="${esc(email)}"${daftar ? '' : ' autofocus'}></div>
       ${noPass ? '' : `<div class="field"><label for="pwPass">Password${daftar ? ' <span class="muted">(minimal 8 karakter)</span>' : ''}</label><input id="pwPass" type="password" required minlength="${daftar ? 8 : 1}" autocomplete="${daftar ? 'new-password' : 'current-password'}"></div>`}
       <div id="pwMsg" aria-live="polite"></div>
-      <button class="btn btn-primary btn-lg btn-block" type="submit" id="pwSubmit">${daftar ? 'Daftar' : lupa ? 'Kirim kode' : link ? 'Kirim link masuk' : 'Masuk'}</button>
+      <button class="btn btn-primary btn-lg btn-block" type="submit" id="pwSubmit">${daftar ? 'Daftar' : lupa ? 'Kirim kode' : 'Masuk'}</button>
     </form>
     <div class="auth-links">
       ${lupa ? '<a href="#" data-pw="masuk">← Kembali ke Masuk</a>' : `
         ${daftar ? '<a href="#" data-pw="masuk">Sudah punya akun? Masuk</a>' : '<a href="#" data-pw="daftar">Belum punya akun? Daftar</a>'}
-        ${mode === 'masuk' ? '<a href="#" data-pw="lupa">Lupa password?</a>' : ''}
-        ${link ? '<a href="#" data-pw="masuk">Masuk dengan password</a>' : '<a href="#" data-pw="link">Masuk lewat link email</a>'}`}
+        ${mode === 'masuk' ? '<a href="#" data-pw="lupa">Lupa password?</a>' : ''}`}
     </div>`);
   document.querySelectorAll('[data-pw]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); authDialog(a.dataset.pw, $('pwEmail').value.trim(), after); }));
   $('pwForm').onsubmit = async (e) => {
@@ -96,9 +96,6 @@ export function authDialog(mode = 'masuk', email = '', after) {
     if (lupa) {
       ({ error } = await db.auth.resetPasswordForEmail(em, { redirectTo: redirectTo() }));
       okMsg = `Link untuk membuat/mengganti password dikirim ke <b>${esc(em)}</b>.`;
-    } else if (link) {
-      ({ error } = await db.auth.signInWithOtp({ email: em, options: { emailRedirectTo: redirectTo() } }));
-      okMsg = `Link masuk dikirim ke <b>${esc(em)}</b>. Buka email lalu klik link-nya.`;
     } else if (daftar) {
       const leaked = await leakedCount($('pwPass').value);
       if (leaked) { btn.disabled = false; btn.textContent = label; $('pwMsg').innerHTML = notice(leakedMessage(leaked), 'error'); return; }
@@ -114,7 +111,7 @@ export function authDialog(mode = 'masuk', email = '', after) {
     if (!error && lupa) return otpDialog(em, '', after);
     if (error) {
       const m = /invalid login/i.test(error.message)
-        ? 'Email atau password salah. Kalau akun dibuat lewat link email, klik "Lupa password?" untuk membuat password.'
+        ? 'Email atau password salah. Belum punya password? Klik "Lupa password?" untuk membuatnya.'
         : /not confirmed/i.test(error.message) ? 'Email belum dikonfirmasi. Cek email dan klik link konfirmasi.' : esc(error.message);
       $('pwMsg').innerHTML = notice(m, 'error');
     } else if (session) {

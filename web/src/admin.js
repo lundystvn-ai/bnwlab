@@ -19,6 +19,7 @@ export function mount(host) {
       <button role="tab" data-tab="ringkasan">Ringkasan</button>
       <button role="tab" data-tab="pembayaran">Pembayaran <span class="count" id="tabCount" hidden></span></button>
       <button role="tab" data-tab="pengguna">Pengguna</button>
+      <button role="tab" data-tab="support">Support <span class="count" id="tabSupport" hidden></span></button>
       <button role="tab" data-tab="unduhan">Riwayat unduhan</button>
       <button role="tab" data-tab="qris">QRIS &amp; kontak</button>
       <button role="tab" data-tab="koneksi">Akun BigJPG</button>
@@ -34,6 +35,7 @@ export function mount(host) {
     if (tab === 'pembayaran') return payments();
     if (tab === 'pengguna') return users();
     if (tab === 'qris') return qris();
+    if (tab === 'support') return support();
     if (tab === 'unduhan') { const m = await import('./history.js'); const box = document.createElement('div'); body().replaceChildren(box); settingsUnmount = m.mount(box, { embedded: true }) || null; return; }
     if (tab === 'koneksi') { const m = await import('./settings.js'); const box = document.createElement('div'); body().replaceChildren(box); settingsUnmount = m.mount(box, { embedded: true }) || null; }
   }
@@ -43,7 +45,9 @@ export function mount(host) {
     const { data } = await db.rpc('admin_stats');
     const n = data?.waiting || 0, c = $('tabCount');
     if (c) { c.hidden = !n; c.textContent = String(n); }
-    const r = document.getElementById('menuCount'); if (r) { r.hidden = !n; r.textContent = String(n); }
+    const { count: open } = await db.from('support_tickets').select('id', { count: 'exact', head: true }).eq('status', 'baru');
+    const sc = $('tabSupport'); if (sc) { sc.hidden = !open; sc.textContent = String(open || 0); }
+    const r = document.getElementById('menuCount'); if (r) { const t = n + (open || 0); r.hidden = !t; r.textContent = String(t); }
     return data;
   }
 
@@ -78,6 +82,51 @@ export function mount(host) {
       const pct = r.total_quota ? Math.round((r.total_used / r.total_quota) * 100) : 0;
       box.innerHTML = `<div class="card"><div class="progress ${pct >= 90 ? 'bad' : pct >= 80 ? 'warn' : 'ok'}"><div class="head"><span>Kuota upscale BigJPG bulan ini · ${r.keys.filter((k) => k.active).length} akun</span><b class="num">${num(r.total_used)} / ${num(r.total_quota)}</b></div><div class="bar"><i style="width:${Math.min(100, pct)}%"></i></div><small>Sisa ${num(r.remaining)}${pct >= 80 ? ' · hampir habis: tambah akun di tab Akun BigJPG' : ''}</small></div></div>`;
     } catch {}
+  }
+
+  // ---------- support tickets ----------
+  async function support(filter = 'aktif') {
+    const { TOPICS, TICKET_STATUS } = await import('./support.js');
+    body().innerHTML = `<div class="filters"><select id="spFilter" aria-label="Filter status">
+        <option value="aktif">Belum selesai</option><option value="baru">Baru</option><option value="diproses">Sedang dicek</option><option value="selesai">Selesai</option><option value="semua">Semua</option></select>
+        <button class="btn btn-secondary" id="spReload">${icon('refresh', 'i i-sm')}Muat ulang</button></div>
+      <div id="spList" class="stack"><div class="empty">Memuat…</div></div>`;
+    $('spFilter').value = filter;
+    $('spFilter').onchange = () => support($('spFilter').value);
+    $('spReload').onclick = () => support($('spFilter').value);
+    let q = db.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(200);
+    if (filter === 'aktif') q = q.neq('status', 'selesai'); else if (filter !== 'semua') q = q.eq('status', filter);
+    const { data, error } = await q;
+    if (!alive) return;
+    const list = $('spList'); if (!list) return;
+    if (error) { list.innerHTML = notice(/does not exist|schema cache/i.test(error.message) ? 'Tabel support belum ada. Jalankan migrasi <b>005_support.sql</b>.' : esc(error.message), 'error'); return; }
+    if (!data?.length) { list.innerHTML = '<div class="empty">Tidak ada pesan.</div>'; return; }
+    list.innerHTML = data.map((t) => {
+      const st = TICKET_STATUS[t.status] || [t.status, ''];
+      const wa = String(t.whatsapp || '').replace(/\D/g, '').replace(/^0/, '62');
+      return `<article class="ticket" data-t="${esc(t.id)}">
+        <div class="row" style="flex-wrap:wrap"><b>${esc(t.username || '-')}</b><span class="xs muted">${esc(t.email || '')}</span><span class="badge">${esc(TOPICS[t.topik] || t.topik)}</span><span class="badge ${st[1]}">${st[0]}</span><span class="grow"></span><span class="xs subtle">${esc(fmtDate(t.created_at))}</span></div>
+        <div class="msg">${esc(t.pesan)}</div>
+        <div class="field"><label for="rp-${esc(t.id)}">Balasan (terlihat oleh pengguna)</label><textarea id="rp-${esc(t.id)}" class="plain" rows="3" maxlength="2000">${esc(t.balasan || '')}</textarea></div>
+        <div class="row" style="flex-wrap:wrap">
+          <select data-st aria-label="Status">${Object.entries(TICKET_STATUS).map(([k, v]) => `<option value="${k}"${k === t.status ? ' selected' : ''}>${v[0]}</option>`).join('')}</select>
+          <button class="btn btn-primary" data-save>Simpan</button>
+          ${wa ? `<a class="btn btn-secondary" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">${icon('chat', 'i i-sm')}WhatsApp ${esc(t.whatsapp)}</a>` : ''}
+          ${t.email ? `<a class="btn btn-quiet" href="mailto:${esc(t.email)}">Email</a>` : ''}
+        </div>
+      </article>`;
+    }).join('');
+    list.querySelectorAll('[data-save]').forEach((b) => (b.onclick = async () => {
+      const art = b.closest('[data-t]'), id = art.dataset.t;
+      const balasan = $('rp-' + id).value.trim();
+      let status = art.querySelector('[data-st]').value;
+      if (balasan && status === 'baru') status = 'diproses';
+      b.disabled = true;
+      const { error: e } = await db.from('support_tickets').update({ balasan: balasan || null, status }).eq('id', id);
+      b.disabled = false;
+      if (e) toast(e.message, 'error'); else { toast('Tersimpan.'); badge(); support($('spFilter').value); }
+    }));
+    badge();
   }
 
   // ---------- payments ----------
@@ -241,7 +290,7 @@ export function mount(host) {
     };
   }
 
-  const first = ['ringkasan', 'pembayaran', 'pengguna', 'unduhan', 'qris', 'koneksi'].includes(tabFromHash()) ? tabFromHash() : 'ringkasan';
+  const first = ['ringkasan', 'pembayaran', 'pengguna', 'support', 'unduhan', 'qris', 'koneksi'].includes(tabFromHash()) ? tabFromHash() : 'ringkasan';
   show(first);
   badge();
   return () => { alive = false; settingsUnmount?.(); };

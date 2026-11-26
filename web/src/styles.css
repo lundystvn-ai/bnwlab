@@ -305,3 +305,11 @@ td .row{gap:6px;flex-wrap:nowrap}
 .metrics.m3{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:760px){.metrics.m3{grid-template-columns:1fr}}
 @media (max-width:560px){.prices{grid-template-columns:1fr}}
+.field textarea.plain{font-family:inherit;font-size:var(--text-sm);line-height:1.5;resize:vertical}
+.support{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:16px;align-items:start}
+.ticket{border:1px solid var(--color-border);border-radius:var(--radius-md);padding:12px 14px;background:var(--color-surface);display:flex;flex-direction:column;gap:6px}
+.ticket .msg{white-space:pre-wrap;font-size:var(--text-sm)}
+.ticket .reply{white-space:pre-wrap;font-size:var(--text-sm);border-left:3px solid var(--color-accent);background:var(--color-surface-2);padding:8px 10px;border-radius:0 var(--radius-sm) var(--radius-sm) 0}
+.help-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:var(--text-sm);color:var(--color-text-muted)}
+.help-list b{color:var(--color-text)}
+@media (max-width:860px){.support{grid-template-columns:1fr}}
