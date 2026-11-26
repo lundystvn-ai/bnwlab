@@ -71,7 +71,7 @@ export function renderVisits(box, isAlive) {
       <div class="metrics">
         ${tile('Sedang online', num(data.online), '<span class="subtle">aktif 5 menit terakhir</span>')}
         ${tile('Pengunjung hari ini', num(data.today), '<span class="subtle">orang berbeda</span>')}
-        ${tile(`Pengunjung ${days} hari`, num(s.visitors), delta(s.visitors, p.visitors, days))}
+        ${tile(`Pengunjung ${days} hari`, num(s.visitors), delta(s.visitors, p.visitors, days) + '<br><span class="subtle">dijumlah per hari</span>')}
         ${tile('Tampilan halaman', num(s.pageviews), delta(s.pageviews, p.pageviews, days))}
       </div>
       <div class="metrics">
@@ -81,13 +81,14 @@ export function renderVisits(box, isAlive) {
         ${tile('Top up dibayar', rupiah(s.revenue), `<span class="subtle">${num(s.paid)} transaksi</span>`)}
       </div>
       <section class="card stack" style="margin-top:4px"><h3 style="margin:0;font-size:var(--text-base)">Pengunjung per hari</h3><div id="vzChart"></div></section>
+      <p class="xs subtle" style="margin:12px 0 0">Rincian di bawah ini mencakup 7 hari terakhir.</p>
       <div class="vz-grid2">
         ${table('Halaman teratas', ['Halaman', 'Pengunjung', 'Dilihat'], data.pages.map((r) => ({ ...r, _label: esc(PAGE[r.name] || r.name), _cells: [num(r.visitors), num(r.pageviews)] })), (r) => r.pageviews)}
         ${table('Sumber kunjungan', ['Dari', 'Kunjungan'], data.sources.map((r) => ({ ...r, _label: sourceName(r.name), _cells: [num(r.sessions)] })), (r) => r.sessions)}
         ${table('Perangkat', ['Jenis', 'Pengunjung', 'Porsi'], data.devices.map((r) => ({ ...r, _label: esc(DEVICE[r.name] || r.name), _cells: [num(r.visitors), dv(r)] })), (r) => r.visitors)}
         ${table('Bahasa yang dipilih', ['Bahasa', 'Pengunjung', 'Porsi'], data.langs.map((r) => ({ ...r, _label: esc(LANG[r.name] || r.name), _cells: [num(r.visitors), lg(r)] })), (r) => r.visitors)}
       </div>
-      <p class="xs subtle">Pencatatan mulai 26 November 2026. Kunjungan dari perangkat admin tidak dihitung. Tidak ada IP atau data pribadi yang disimpan; "pengunjung" dihitung per browser.</p>`;
+      <p class="xs subtle">Pencatatan mulai 26 November 2026. Data rinci disimpan 7 hari; setelah itu hanya ringkasan harian (jumlah pengunjung, kunjungan, tampilan halaman) yang disimpan. Kunjungan dari perangkat admin tidak dihitung. Tidak ada IP atau data pribadi yang disimpan; "pengunjung" dihitung per browser.</p>`;
     box.querySelector('#vzRange').onclick = (e) => { const b = e.target.closest('[data-d]'); if (b && Number(b.dataset.d) !== days) { days = Number(b.dataset.d); load(); } };
     const holder = box.querySelector('#vzChart');
     let lastW = 0;
