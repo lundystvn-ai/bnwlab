@@ -2,7 +2,7 @@
 // history row → upload to bigjpg-inputs → start → poll every 5 s (max 30 min) → result link.
 import { db, invoke } from './supa.js';
 import { $, esc, icon, notice, uuid, fmtDate, num } from './util.js';
-import { state, isAdmin, regionId, regionTz, regionName } from './session.js';
+import { state, isAdmin, regionId, regionTz, regionName, refreshCredits } from './session.js';
 import { L, tr } from './i18n.js';
 
 const BUCKET = 'bigjpg-inputs';
@@ -44,7 +44,7 @@ export function mount(host) {
     </section>
   </div></div>`;
 
-  const say = (m, t = 'ok') => ($('upNotice').innerHTML = m ? notice(m, t) : '');
+  const say = (m, t = 'ok') => { const el = $('upNotice'); if (el) el.innerHTML = m ? notice(m, t) : ''; };
   const sel = (g) => g.querySelector('[aria-checked=true]')?.dataset.v;
   ['upScale', 'upStyle'].forEach((id) => $(id).addEventListener('click', (e) => {
     const b = e.target.closest('[role=radio]'); if (!b) return;
@@ -94,7 +94,8 @@ export function mount(host) {
   const safeUrl = (u) => (/^https?:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
   function showResult(url) {
     const u = safeUrl(url); if (!u) return;
-    $('upResult').innerHTML = `<div class="stack"><img class="result-img" src="${esc(u)}" alt="${L('Hasil upscale', 'Upscale result')}"><div class="row"><a class="btn btn-primary btn-lg" href="${esc(u)}" target="_blank" rel="noopener">${icon('download', 'i i-sm')}${L('Buka / unduh hasil', 'Open / download result')}</a></div><p class="xs subtle">${L('Link hasil berlaku terbatas. Simpan file segera.', 'The result link expires. Save the file soon.')}</p></div>`;
+    const box = $('upResult'); if (!box) return;
+    box.innerHTML = `<div class="stack"><img class="result-img" src="${esc(u)}" alt="${L('Hasil upscale', 'Upscale result')}"><div class="row"><a class="btn btn-primary btn-lg" href="${esc(u)}" target="_blank" rel="noopener">${icon('download', 'i i-sm')}${L('Buka / unduh hasil', 'Open / download result')}</a></div><p class="xs subtle">${L('Link hasil berlaku terbatas. Simpan file segera.', 'The result link expires. Save the file soon.')}</p></div>`;
   }
 
   // submit
@@ -107,7 +108,7 @@ export function mount(host) {
     const btn = $('upSubmit'); btn.disabled = true; btn.innerHTML = `<span class="spin"></span>${L('Mengunggah…', 'Uploading…')}`;
     say(L('Menyiapkan gambar…', 'Preparing image…'), 'warn');
     const prog = $('upProgress'); prog.hidden = true; prog.dataset.id = ''; prog.innerHTML = '';
-    let id = null, path = '';
+    let id = null, path = '', started = false;
     try {
       const ins = await db.from('riwayat_bigjpg').insert({
         file_name: file.name, scale, style, noise, status: 'uploading', user_id: state.user.id, username: state.profile.username,
@@ -122,19 +123,27 @@ export function mount(host) {
       if (up.error) throw new Error(L('Gambar gagal diunggah: ', 'Upload failed: ') + up.error.message);
       btn.innerHTML = `<span class="spin"></span>${L('Memproses…', 'Processing…')}`;
       const r = await invoke(FN, { action: 'start', storage_path: path, file_name: file.name, file_type: file.type, scale, style, noise, history_id: id });
+      started = !!r.task_id;
       if (!r.task_id) throw new Error(L('Server tidak mengembalikan ID proses.', 'The server returned no job ID.'));
-      const u = await db.from('riwayat_bigjpg').update({ task_id: String(r.task_id), status: 'processing', updated_at: new Date().toISOString(), error_message: null }).eq('id', id);
-      if (u.error) throw u.error;
+      // the server already saved the task id and status; nothing else to write here
       live(id, 'processing', 0, L('Gambar diterima server.', 'Image received by the server.'));
       say(L('Gambar sedang diproses. Hasil muncul otomatis di sini.', 'Your image is being processed. The result appears here automatically.'), 'warn');
       clearTimeout(pollTimer); loadList(); poll(id, String(r.task_id), 0);
     } catch (err) {
-      if (id) await db.from('riwayat_bigjpg').update({ status: 'failed', error_message: err.message, updated_at: new Date().toISOString() }).eq('id', id);
-      if (path) await db.storage.from(BUCKET).remove([path]).catch(() => {});
-      if (id) live(id, 'failed', 0, tr(err.message) || L('Upscale gagal.', 'Upscale failed.'));
-      say(esc(tr(err.message) || L('Upscale gagal.', 'Upscale failed.')), 'error'); loadList();
+      if (started) {
+        // The job is already running on the server: a problem on this page must not mark it failed.
+        console.error('upscale page', err);
+        if (alive) { clearTimeout(pollTimer); poll(id, '', 0); }
+      } else {
+        // Not started: no credit was charged (or the server refunded it). Mark only our own draft row.
+        if (id) await db.from('riwayat_bigjpg').update({ status: 'failed', error_message: err.message, updated_at: new Date().toISOString() }).eq('id', id).is('bigjpg_tid', null);
+        if (path) await db.storage.from(BUCKET).remove([path]).catch(() => {});
+        if (id) live(id, 'failed', 0, tr(err.message) || L('Upscale gagal.', 'Upscale failed.'));
+        say(esc(tr(err.message) || L('Upscale gagal.', 'Upscale failed.')), 'error');
+      }
+      if (alive) loadList();
     } finally {
-      btn.disabled = false; btn.innerHTML = `${icon('expand', 'i i-sm')}Upscale <span class="cost" id="upCost"></span>`; updateCost();
+      if (btn.isConnected) { btn.disabled = false; btn.innerHTML = `${icon('expand', 'i i-sm')}Upscale <span class="cost" id="upCost"></span>`; updateCost(); }
     }
   };
 
@@ -145,27 +154,35 @@ export function mount(host) {
       live(id, 'timeout', n, L('Belum selesai setelah 30 menit.', 'Not finished after 30 minutes.')); say(L('Proses belum selesai setelah 30 menit. Gunakan Cek lagi dari riwayat.', 'Not finished after 30 minutes. Use Check again in the history.'), 'warn'); loadList();
       return;
     }
+    let r;
     try {
       live(id, 'processing', n, L('Mengecek status…', 'Checking status…'));
-      const r = await invoke(FN, { action: 'status', task_id: task, history_id: id });
+      r = await invoke(FN, { action: 'status', task_id: task, history_id: id });
+    } catch (err) {
+      // Network or server hiccup: try again later instead of calling the job failed.
+      if (!alive) return;
+      live(id, 'processing', n, L('Koneksi terputus, mencoba lagi…', 'Connection problem, trying again…'));
+      pollTimer = setTimeout(() => poll(id, task, n + 1), 8000);
+      return;
+    }
+    if (!alive) return;
+    try {
       const st = String(r.status || 'processing').toLowerCase(), url = safeUrl(r.result_url);
       if (st === 'completed' && url) {
-        const u = await db.from('riwayat_bigjpg').update({ status: 'completed', result_url: url, error_message: null, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', id);
-        if (u.error) throw u.error;
         live(id, 'completed', n, L('Upscale selesai.', 'Upscale done.')); say(L('Upscale selesai. Hasil siap dibuka atau diunduh.', 'Upscale done. Your result is ready to open or download.')); showResult(url); loadList();
         return;
       }
       if (st === 'failed') {
+        // the server has already marked it failed and refunded the credits
         const m = tr(r.error_message) || L('Gambar gagal diproses.', 'The image could not be processed.');
-        await db.from('riwayat_bigjpg').update({ status: 'failed', error_message: m, updated_at: new Date().toISOString() }).eq('id', id);
+        refreshCredits();
         live(id, 'failed', n, m); say(esc(m), 'error'); loadList();
         return;
       }
       live(id, st, n, L('Pengecekan berikutnya dalam 5 detik…', 'Next check in 5 seconds…'));
       pollTimer = setTimeout(() => poll(id, task, n + 1), 5000);
     } catch (err) {
-      await db.from('riwayat_bigjpg').update({ status: 'failed', error_message: err.message, updated_at: new Date().toISOString() }).eq('id', id);
-      live(id, 'failed', n, tr(err.message) || L('Upscale gagal.', 'Upscale failed.')); say(esc(tr(err.message)), 'error'); loadList();
+      console.error('upscale page', err);
     }
   }
 
@@ -203,18 +220,30 @@ export function mount(host) {
     box.innerHTML = `<div class="table-wrap"><table><thead><tr>${isAdmin() ? `<th>${L('Wilayah', 'Region')}</th>` : ''}<th>${L('File', 'File')}</th>${isAdmin() ? `<th>${L('Pengguna', 'User')}</th>` : ''}<th>${L('Skala', 'Scale')}</th><th>${L('Jenis', 'Type')}</th><th>${L('Status', 'Status')}</th><th>${L('Proses', 'Progress')}</th><th>${L('Hasil', 'Result')}</th><th>${L('Waktu', 'Time')}</th></tr></thead><tbody>
       ${data.map((r) => {
         const st = String(r.status || '').toLowerCase();
-        const recheck = r.task_id && (st === 'processing' || st === 'timeout') ? `<button class="btn btn-secondary" data-recheck="${esc(r.id)}" data-task="${esc(r.task_id)}">${L('Cek lagi', 'Check again')}</button>` : '';
+        const recent = Date.now() - new Date(r.created_at).getTime() < 3 * 864e5;
+        const recheck = r.task_id && (st === 'processing' || st === 'timeout' || (st === 'failed' && recent)) ? `<button class="btn btn-secondary" data-recheck="${esc(r.id)}" data-task="${esc(r.task_id)}">${L('Cek lagi', 'Check again')}</button>` : '';
         const link = safeUrl(r.result_url) ? `<a class="btn btn-secondary" href="${esc(safeUrl(r.result_url))}" target="_blank" rel="noopener">${icon('link', 'i i-sm')}${L('Buka', 'Open')}</a>` : '';
         return `<tr>${isAdmin() ? `<td>${esc(regionName(r.wilayah_id))}</td>` : ''}<td>${esc(r.file_name || '-')}</td>${isAdmin() ? `<td>${esc(r.username || '-')}</td>` : ''}<td class="num">${esc(r.scale || '-')}×</td><td>${r.style === 'photo' ? L('Foto', 'Photo') : L('Artwork', 'Artwork')}</td><td>${badge(st)}${r.error_message && st !== 'completed' ? `<div class="xs subtle" style="max-width:220px">${esc(tr(r.error_message))}</div>` : ''}</td><td>${progressHtml(r, 0)}</td><td><div class="row">${link}${recheck}${!link && !recheck ? '-' : ''}</div></td><td class="xs">${esc(fmtDate(r.created_at, regionTz()))}</td></tr>`;
       }).join('')}</tbody></table></div>`;
     box.querySelectorAll('[data-recheck]').forEach((b) => (b.onclick = async () => {
       b.disabled = true; b.textContent = L('Mengecek…', 'Checking…'); clearTimeout(pollTimer);
-      $('upProgress').dataset.id = b.dataset.recheck;
+      const pr = $('upProgress'); if (pr) pr.dataset.id = b.dataset.recheck;
       await poll(b.dataset.recheck, b.dataset.task, 0);
     }));
   }
   $('upRefresh').onclick = loadList;
   loadList();
+  // Coming back to this page: keep following the newest job that is still running.
+  (async () => {
+    const { data } = await db.from('riwayat_bigjpg').select('id,task_id,status,created_at').eq('user_id', state.user.id)
+      .in('status', ['processing', 'uploading']).not('bigjpg_tid', 'is', null).gte('created_at', new Date(Date.now() - 864e5).toISOString())
+      .order('created_at', { ascending: false }).limit(1);
+    const row = data?.[0];
+    if (!row || !alive) return;
+    const pr = $('upProgress'); if (pr) pr.dataset.id = String(row.id);
+    say(L('Upscale sebelumnya masih diproses. Hasil muncul otomatis di sini.', 'Your previous upscale is still processing. The result will appear here.'), 'warn');
+    poll(row.id, String(row.task_id || ''), 0);
+  })();
 
   return () => { alive = false; clearTimeout(pollTimer); };
 }
