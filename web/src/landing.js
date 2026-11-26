@@ -50,7 +50,7 @@ export function renderLanding(view) {
     <section class="section alt" id="harga">
       <div class="wrap">
         <h2>Harga sederhana: bayar sesuai pemakaian</h2>
-        <p class="sub">Unduh hasil Raster/Knockout = 3 kredit (sekitar Rp2.000–Rp2.200). Upscale = 1 kredit per gambar. Kredit tidak kedaluwarsa.</p>
+        <p class="sub">Unduh hasil Raster/Knockout = 3 kredit (sekitar Rp1.900–Rp2.100). Upscale = 1 kredit per gambar. Makin besar paket, makin murah per kredit. Kredit tidak kedaluwarsa.</p>
         <div class="prices" id="prices">${pricing()}</div>
       </div>
     </section>
