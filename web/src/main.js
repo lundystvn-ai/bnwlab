@@ -1,10 +1,10 @@
 import './styles.css';
 import { db } from './supa.js';
 import { $, closeModal, toast } from './util.js';
-import { state, onSession, applySession, clearSession, signOut, authDialog, topupDialog, newPasswordDialog, loadPackages, refreshCredits, isAdmin } from './session.js';
+import { state, onSession, applySession, clearSession, signOut, authDialog, topupDialog, newPasswordDialog, loadPackages, loadSettings, refreshCredits, isAdmin } from './session.js';
 import { renderLanding, pricing } from './landing.js';
 
-const APP_ROUTES = ['editor', 'upscale', 'riwayat', 'pengaturan'];
+const APP_ROUTES = ['editor', 'upscale', 'riwayat', 'admin'];
 const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];
 const view = $('view');
 let current = null;       // current route name
@@ -15,7 +15,7 @@ const authInUrl = /access_token|refresh_token|[?&]code=|type=recovery/.test(loca
 function routeFromHash() {
   const h = location.hash.replace(/^#\/?/, '');
   if (!h || /access_token|error_description|type=/.test(h)) return '';
-  return h.split(/[?&]/)[0];
+  return h.split(/[?&]/)[0].split('/')[0];
 }
 
 export function go(route) {
@@ -24,13 +24,14 @@ export function go(route) {
 }
 
 async function render() {
-  const route = routeFromHash();
+  let route = routeFromHash();
+  if (route === 'pengaturan') { history.replaceState(null, '', '#admin/koneksi'); route = 'admin'; }
   closeModal();
   document.querySelectorAll('.menu a').forEach((a) => (a.dataset.route === route ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
 
   if (APP_ROUTES.includes(route)) {
     if (!state.user) { showLanding(); authDialog('masuk', '', () => render()); return; }
-    if (route === 'pengaturan' && !isAdmin()) { go('editor'); return; }
+    if (route === 'admin' && !isAdmin()) { go('editor'); return; }
     if (current === route) return;
     unmount?.(); unmount = null;
     current = route;
@@ -39,8 +40,9 @@ async function render() {
     const mod = route === 'editor' ? await import('./editor.js')
       : route === 'upscale' ? await import('./upscale.js')
       : route === 'riwayat' ? await import('./history.js')
-      : await import('./settings.js');
+      : await import('./admin.js');
     unmount = mod.mount(host) || null;
+    if (isAdmin()) db.rpc('admin_stats').then(({ data }) => { const c = $('railCount'); if (c && data?.waiting) { c.hidden = false; c.textContent = String(data.waiting); } });
     return;
   }
   showLanding();
@@ -60,7 +62,7 @@ function appFrame(route) {
       ${t('upscale', 'expand', 'Upscale')}
       <span class="sep"></span>
       ${t('riwayat', 'history', 'Riwayat')}
-      ${isAdmin() ? t('pengaturan', 'settings', 'Pengaturan (admin)') : ''}
+      ${isAdmin() ? `<a class="tool" href="#admin" ${route === 'admin' ? 'aria-current="page"' : ''} aria-label="Admin"><svg class="i"><use href="#i-shield"/></svg><span class="count" id="railCount" hidden></span><span class="tip">Admin</span></a>` : ''}
     </nav>
     <div id="appMain" class="app-main" style="min-height:0;display:grid"></div>
   </div>`;
@@ -107,7 +109,7 @@ window.addEventListener('hashchange', render);
 // ---------- boot ----------
 (async function boot() {
   syncTheme();
-  try { await loadPackages(); } catch {}
+  try { await Promise.all([loadPackages(), loadSettings()]); } catch {}
   const { data } = await db.auth.getSession();
   if (data?.session) await applySession(data.session);
   db.auth.onAuthStateChange((event, session) => {

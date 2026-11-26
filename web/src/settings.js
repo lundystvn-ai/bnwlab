@@ -4,12 +4,11 @@ import { cfg, store, usingBrowserOverride } from './config.js';
 import { $, esc, icon, notice } from './util.js';
 import { isAdmin } from './session.js';
 
-export function mount(host) {
+export function mount(host, opts = {}) {
   if (!isAdmin()) { host.innerHTML = '<div class="page"><div class="page-in">' + notice('Halaman ini hanya untuk admin.', 'error') + '</div></div>'; return; }
-  host.innerHTML = `
-  <div class="page"><div class="page-in" style="max-width:820px">
-    <div class="page-head"><div><h1>Pengaturan</h1><p>Hanya terlihat oleh admin.</p></div></div>
-    <div class="stack">
+  const head = opts.embedded ? '' : '<div class="page"><div class="page-in" style="max-width:820px"><div class="page-head"><div><h1>Pengaturan</h1><p>Hanya terlihat oleh admin.</p></div></div>';
+  host.innerHTML = head + `
+    <div class="stack" style="max-width:820px">
       <section class="card stack">
         <div class="toolbar" style="margin:0"><div><h2>API BigJPG</h2><p class="xs muted" style="margin:2px 0 0">Key disimpan di server lewat Edge Function, tidak pernah dikirim ke browser.</p></div><span class="badge" id="bjStatus">Memuat…</span></div>
         <form id="bjForm" class="row" style="align-items:flex-end;flex-wrap:wrap">
@@ -30,8 +29,7 @@ export function mount(host) {
         </form>
         <div id="sbResult" class="check-list" aria-live="polite"></div>
       </section>
-    </div>
-  </div></div>`;
+    </div>` + (opts.embedded ? '' : '</div></div>');
 
   async function bjStatus() {
     const b = $('bjStatus');

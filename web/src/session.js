@@ -168,24 +168,82 @@ export function newPasswordDialog(after) {
   };
 }
 
-export function topupDialog(reason = '') {
+// ---------- top-up: pick a package → QRIS with the amount → "Saya sudah bayar" → admin confirms ----------
+export async function loadSettings() {
+  const { data } = await db.from('app_settings').select('key,value');
+  for (const r of data || []) {
+    if (r.key === 'qris_static' && r.value) cfg.qrisStatic = r.value;
+    if (r.key === 'kontak_whatsapp') cfg.kontakWhatsApp = r.value;
+  }
+}
+
+const waLink = (text) => {
   const wa = String(cfg.kontakWhatsApp || '').replace(/\D/g, '');
-  const contact = wa
-    ? `<a class="btn btn-primary btn-block" target="_blank" rel="noopener" href="https://wa.me/${wa}?text=${encodeURIComponent('Halo, saya mau isi kredit ' + cfg.brand)}">Hubungi via WhatsApp</a><p class="muted small center">WhatsApp: +${esc(wa)}</p>`
-    : cfg.kontakEmail ? `<p>Email: <b>${esc(cfg.kontakEmail)}</b></p>` : '<p class="muted">Hubungi admin untuk isi kredit.</p>';
+  return wa ? `https://wa.me/${wa}?text=${encodeURIComponent(text)}` : '';
+};
+
+export async function topupDialog(reason = '') {
+  if (!state.user) { authDialog('daftar', '', () => topupDialog(reason)); return; }
+  const mine = await db.from('payments').select('id,package_id,kredit,jumlah,status,claimed_at,created_at').eq('user_id', state.user.id).order('created_at', { ascending: false }).limit(5);
+  const waiting = (mine.data || []).filter((p) => p.status === 'pending' && p.claimed_at);
   openModal(`
     <h3>Isi kredit</h3>
     ${reason ? `<p class="muted">${esc(reason)}</p>` : ''}
     <div class="wallet-now">Saldo sekarang <b class="mono">${state.credits}</b> kredit</div>
-    <div class="pack-list">${state.packages.map((p) => `
-      <div class="pack${p.populer ? ' pop' : ''}">
-        <div><div class="pack-name">${esc(p.nama)}${p.populer ? ' <span class="badge b-accent">Populer</span>' : ''}</div>
-        <div class="muted small">${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit · ${esc(p.catatan || '')}</div></div>
+    ${waiting.length ? notice(`${waiting.length} pembayaran menunggu konfirmasi admin (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Kredit masuk otomatis setelah dicek.`, 'warn') : ''}
+    <div class="pack-list" role="list">${state.packages.map((p) => `
+      <button class="pack pack-btn${p.populer ? ' pop' : ''}" data-pack="${esc(p.id)}" role="listitem">
+        <span><span class="pack-name">${esc(p.nama)}${p.populer ? ' <span class="badge b-accent">Terlaris</span>' : ''}</span>
+        <span class="muted small">${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit · ${esc(p.catatan || '')}</span></span>
         <b class="pack-price">${rupiah(p.harga)}</b>
-      </div>`).join('')}</div>
-    <p class="muted small">Pembayaran online segera hadir. Untuk saat ini pilih paket lalu konfirmasi ke admin; kredit ditambahkan setelah pembayaran diterima. Kredit tidak hangus.</p>
-    ${contact}
-    <div class="modal-actions"><button class="btn btn-quiet" data-close>Tutup</button></div>`);
+      </button>`).join('')}</div>
+    <p class="muted small">Bayar dengan QRIS dari e-wallet atau m-banking apa pun. Kredit tidak hangus.</p>
+    <div id="tpMsg"></div>`);
+  document.querySelectorAll('[data-pack]').forEach((b) => (b.onclick = () => startTopup(b.dataset.pack, b)));
+}
+
+async function startTopup(packId, btn) {
+  btn.disabled = true;
+  const { data, error } = await db.rpc('create_topup', { p_package: packId });
+  btn.disabled = false;
+  if (error) {
+    const m = /too_many_pending/.test(error.message) ? 'Terlalu banyak pembayaran yang belum selesai. Selesaikan atau batalkan dulu.'
+      : /function .* does not exist|Could not find the function/i.test(error.message) ? 'Pembayaran QRIS belum diaktifkan oleh admin.' : esc(error.message);
+    $('tpMsg').innerHTML = notice(m, 'error'); return;
+  }
+  let payload, svg;
+  try {
+    const { dynamicQris } = await import('./qris.js');
+    const QR = (await import('qrcode')).default;
+    payload = dynamicQris(cfg.qrisStatic, data.harga);
+    svg = await QR.toString(payload, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#000000', light: '#ffffff' } });
+  } catch (e) { $('tpMsg').innerHTML = notice('QRIS tidak dapat dibuat: ' + esc(e.message), 'error'); return; }
+  const { merchantName } = await import('./qris.js');
+  const ref = String(data.id).slice(0, 8).toUpperCase();
+  openModal(`
+    <h3>Bayar ${rupiah(data.harga)}</h3>
+    <p class="muted">Paket <b>${esc(data.nama)}</b> · ${data.kredit} kredit · kode <span class="mono">${ref}</span></p>
+    <div class="qris-box"><div class="qris">${svg}</div>
+      <div class="qris-meta"><b>${esc(merchantName(cfg.qrisStatic))}</b><span class="mono">${rupiah(data.harga)}</span></div></div>
+    <ol class="qris-steps small">
+      <li>Buka GoPay, OVO, DANA, ShopeePay, atau m-banking, lalu scan QRIS ini.</li>
+      <li>Pastikan nominal <b>${rupiah(data.harga)}</b> dan bayar.</li>
+      <li>Tekan <b>Saya sudah bayar</b>. Kredit masuk setelah admin mengecek pembayaran.</li>
+    </ol>
+    <div id="tpMsg"></div>
+    <div class="modal-actions"><button class="btn btn-quiet" id="tpCancel">Batal</button><button class="btn btn-primary btn-lg" id="tpPaid">Saya sudah bayar</button></div>`, { wide: false });
+  $('tpCancel').onclick = async () => { await db.rpc('cancel_topup', { p_id: data.id }); closeModal(); };
+  $('tpPaid').onclick = async () => {
+    const b = $('tpPaid'); b.disabled = true;
+    const r = await db.rpc('claim_topup', { p_id: data.id });
+    if (r.error) { b.disabled = false; $('tpMsg').innerHTML = notice(esc(r.error.message), 'error'); return; }
+    const wa = waLink(`Halo, saya sudah bayar QRIS ${rupiah(data.harga)} untuk paket ${data.nama} (kode ${ref}). Email: ${state.user.email}`);
+    openModal(`
+      <h3>Terima kasih!</h3>
+      ${notice(`Pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) sedang dicek admin. <b>${data.kredit} kredit</b> masuk otomatis setelah dikonfirmasi.`, 'ok')}
+      <p class="muted small">Biasanya tidak lama. Saldo diperbarui sendiri saat kamu kembali ke halaman ini.</p>
+      <div class="modal-actions">${wa ? `<a class="btn btn-secondary" href="${esc(wa)}" target="_blank" rel="noopener">Kirim bukti via WhatsApp</a>` : ''}<button class="btn btn-primary" data-close>Selesai</button></div>`);
+  };
 }
 
 export function renderCreditChip() {

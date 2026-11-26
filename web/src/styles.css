@@ -276,3 +276,27 @@ td.num,th.num{text-align:right}
   .page-in{padding:16px}
   .wrap{padding:0 16px}
 }
+
+/* ---------- top-up (QRIS) ---------- */
+.pack-btn{width:100%;text-align:left;cursor:pointer;font:inherit;color:inherit;transition:border-color var(--motion-fast),background var(--motion-fast)}
+.pack-btn>span:first-child{display:flex;flex-direction:column;gap:2px}
+.pack-btn:hover{border-color:var(--color-accent)}
+.pack-btn[disabled]{opacity:.6;pointer-events:none}
+.qris-box{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px;border-radius:var(--radius-md);background:#fff;color:#111;margin:4px 0 12px}
+.qris{width:min(260px,70vw);aspect-ratio:1}.qris svg{width:100%;height:100%;display:block}
+.qris-meta{display:flex;flex-direction:column;align-items:center;font-size:var(--text-sm)}
+.qris-meta .mono{font-size:var(--text-lg);font-weight:600}
+.qris-steps{margin:0 0 6px;padding-left:18px;color:var(--color-text-muted);display:flex;flex-direction:column;gap:4px}
+
+/* ---------- admin ---------- */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--color-border);margin-bottom:16px;overflow-x:auto}
+.tabs button{height:36px;padding:0 12px;border:0;background:none;font-size:var(--text-sm);font-weight:600;color:var(--color-text-muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.tabs button[aria-selected=true]{color:var(--color-text);border-bottom-color:var(--color-accent)}
+.count{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--color-danger);color:#fff;font-size:var(--text-2xs);display:inline-grid;place-items:center}
+.rail .count{position:absolute;top:2px;right:0;min-width:16px;height:16px;font-size:10px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.filters input,.filters select{height:30px;padding:0 10px;border:1px solid var(--color-border-input);border-radius:var(--radius-sm);background:var(--color-bg);font-size:var(--text-sm)}
+.filters input{min-width:220px}
+td .row{gap:6px;flex-wrap:nowrap}
+.qr-preview{width:200px;padding:10px;background:#fff;border-radius:var(--radius-md)}.qr-preview svg{display:block;width:100%;height:auto}
+.mono-box{font-family:var(--font-mono);font-size:var(--text-2xs);word-break:break-all;background:var(--color-bg);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:8px;max-height:110px;overflow:auto}
