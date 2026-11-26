@@ -325,3 +325,13 @@ td .row{gap:6px;flex-wrap:nowrap}
 .legal p,.legal li{font-size:var(--text-sm);line-height:1.65;color:var(--color-text)}
 .legal ul{padding-left:20px;margin:0;display:flex;flex-direction:column;gap:6px}
 .legal .lead{font-size:var(--text-base);color:var(--color-text-muted)}
+.ck-width{width:64px;height:26px;padding:0 6px;border:1px solid var(--color-border-input,var(--color-border));border-radius:var(--radius-sm);background:var(--color-bg);color:var(--color-text);font:inherit;font-size:var(--text-xs)}
+.ck-list{display:flex;flex-direction:column;gap:6px;margin:6px 0}
+.ck-item{display:flex;gap:8px;align-items:flex-start;padding:7px 8px;border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-surface);font-size:var(--text-xs);line-height:1.4}
+.ck-item .ck-ic{flex:none;margin-top:1px}
+.ck-item .ck-body{flex:1;display:flex;flex-direction:column;gap:1px;color:var(--color-text-muted)}
+.ck-item .ck-body b{color:var(--color-text);font-weight:600}
+.ck-item .btn-sm{flex:none;height:24px;padding:0 8px;font-size:var(--text-2xs)}
+.ck-ok .ck-ic{color:var(--color-success)}.ck-warn .ck-ic{color:var(--color-warning)}.ck-bad .ck-ic{color:var(--color-danger)}.ck-info .ck-ic{color:var(--color-text-subtle)}
+.ck-bad{border-color:color-mix(in srgb,var(--color-danger) 45%,var(--color-border))}
+#ckFixAll{width:100%}

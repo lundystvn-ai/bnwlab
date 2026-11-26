@@ -5,14 +5,15 @@ import { db } from './supa.js';
 import { $, esc, icon, notice, toast, uuid, fmtDate, num } from './util.js';
 import { L as T, tr, lang } from './i18n.js';
 import { store } from './config.js';
+import { analyze, dpiFor, fixHaze, cleanFringe, fixSpecks, thinOverlay } from './checker.js';
 import { state, setCredits, topupDialog, authDialog, clearSession, isAdmin, isManager, regionId, regionTz } from './session.js';
 
 // Downloaded PNGs open at 300 DPI in RIP software.
-const dpiBlob = async (b) => { try { return new Blob([E.setPngDpi(await b.arrayBuffer(), 300)], { type: 'image/png' }); } catch { return b; } };
+const dpiBlob = async (b, dpi = 300) => { try { return new Blob([E.setPngDpi(await b.arrayBuffer(), Math.max(30, Math.min(1200, dpi)))], { type: 'image/png' }); } catch { return b; } };
 
 const opLabel = (op) => {
   const l = E.OPERATION_LABELS[op] || op || 'Original';
-  return lang === 'en' ? l.replace('Raster Bulat', 'Round Raster').replace('Raster Garis', 'Line Raster').replace('Warna', 'Colour') : l;
+  return lang === 'en' ? l.replace('Perbaikan file', 'File cleanup').replace('Raster Bulat', 'Round Raster').replace('Raster Garis', 'Line Raster').replace('Warna', 'Colour') : l;
 };
 
 export function mount(host) {
@@ -60,6 +61,13 @@ export function mount(host) {
             <div class="row"><span class="lbl">File</span><span class="xs" id="fileInfo" style="flex:1;overflow-wrap:anywhere">${T('Belum ada gambar', 'No image yet')}</span></div>
             <div class="row"><span class="lbl">${T('Cetak @300 DPI', 'Print @300 DPI')}</span><span class="val" id="printSize">-</span></div>
             <button class="btn btn-secondary" id="pickBtn">${icon('upload', 'i i-sm')}${T('Pilih gambar', 'Choose image')}</button>
+          </div>
+        </details>
+        <details class="sec" open id="ckSec"><summary>${icon('chev', 'i i-sm chev')}${T('Cek Gambar', 'Image Checker')}<span class="badge" id="ckBadge" hidden></span></summary>
+          <div class="sec-body">
+            <div class="row"><span class="lbl">${T('Lebar cetak', 'Print width')}</span><input type="number" class="ck-width" id="ckWidth" min="1" max="200" step="0.5" inputmode="decimal" aria-label="${T('Lebar cetak dalam cm', 'Print width in cm')}"><span class="val">cm</span><span class="val grow" id="ckDpi" style="text-align:right"></span></div>
+            <div id="ckList" class="ck-list" aria-live="polite"><p class="hint">${T('Upload gambar, lalu masalah cetak DTF dicek otomatis di sini. Gratis, tidak memakai kredit.', 'Upload an image and DTF print problems are checked here automatically. Free, no credits used.')}</p></div>
+            <button class="btn btn-primary" id="ckFixAll" hidden>${icon('check', 'i i-sm')}${T('Perbaiki semua', 'Fix all')}</button>
           </div>
         </details>
         <details class="sec" open><summary>${icon('chev', 'i i-sm chev')}${T('Raster halftone', 'Halftone raster')}</summary>
@@ -111,6 +119,7 @@ export function mount(host) {
   // ---------- state ----------
   const S = {
     name: 'image', fileName: 'image', k: null, w: null, B: null, s: 'original', m: 'none', ko: 'none',
+    base: null, jpeg: false, dpi: 300, ck: null, ckThin: false,
     L: E.createColorKnockoutState(), undo: null, garment: 'white', bg: 'checker', dots: store.get('raster_dots', 'keep') === 'holes' ? 'holes' : 'keep',
     z: 1, fit: 1, px: 0, py: 0, split: 50, compare: true, busy: false, job: null, blobUrl: '', blobFor: null,
   };
@@ -218,12 +227,15 @@ export function mount(host) {
     }
     controls();
     applyView();
+    scheduleCheck();
   }
   function controls() {
     const has = !!S.k, busy = S.busy;
     [els.rRound, els.rLine, els.lpi, els.angle].forEach((x) => (x.disabled = !has || busy));
     $('garment').querySelectorAll('button').forEach((b) => (b.disabled = !has || busy));
     $('dots').querySelectorAll('button').forEach((b) => (b.disabled = busy));
+    $('ckWidth').disabled = busy; $('ckFixAll').disabled = !has || busy;
+    $('ckList').querySelectorAll('[data-fix]').forEach((b) => (b.disabled = !has || busy));
     $('ko').querySelectorAll('button').forEach((b) => (b.disabled = !has || busy));
     els.undo.disabled = !has || busy || !S.undo;
     els.reset.disabled = !has || busy;
@@ -268,16 +280,16 @@ export function mount(host) {
     const gen = ++blobGen, data = S.B;
     const c = document.createElement('canvas'); c.width = data.width; c.height = data.height;
     c.getContext('2d').putImageData(data, 0, 0);
-    c.toBlob(async (b) => { if (gen !== blobGen || !b) return; const d = await dpiBlob(b); if (gen !== blobGen) return; S.blobUrl = URL.createObjectURL(d); S.blobFor = data; }, 'image/png');
+    c.toBlob(async (b) => { if (gen !== blobGen || !b) return; const d = await dpiBlob(b, S.dpi); if (gen !== blobGen) return; S.blobUrl = URL.createObjectURL(d); S.blobFor = data; }, 'image/png');
   }
 
   // ---------- undo (one step, like before) ----------
-  const snapshot = () => ({ B: S.B, w: S.w, s: S.s, m: S.m, ko: S.ko, L: E.createColorKnockoutState(S.L), lpi: els.lpi.value, angle: els.angle.value });
+  const snapshot = () => ({ base: S.base, B: S.B, w: S.w, s: S.s, m: S.m, ko: S.ko, L: E.createColorKnockoutState(S.L), lpi: els.lpi.value, angle: els.angle.value });
   const capture = () => { S.undo = snapshot(); };
   els.undo.onclick = () => {
     const u = S.undo; if (!u) return;
     S.job?.cancel(); S.undo = null;
-    Object.assign(S, { B: u.B, w: u.w, s: u.s, m: u.m, ko: u.ko, L: u.L });
+    Object.assign(S, { base: u.base, B: u.B, w: u.w, s: u.s, m: u.m, ko: u.ko, L: u.L });
     els.lpi.value = u.lpi; els.angle.value = u.angle; lpiLabel();
     show(); prepareBlob();
     say(S.s === 'original' ? T('Undo selesai: kembali ke gambar asli.', 'Undone: back to the original image.') : T('Undo selesai: langkah sebelumnya dikembalikan.', 'Undone: the previous step was restored.'));
@@ -300,7 +312,7 @@ export function mount(host) {
       const data = cx.getImageData(0, 0, c.width, c.height);
       Object.assign(S, {
         name: (f.name || 'image').replace(/\.[^.]+$/, '') || 'image', fileName: f.name || 'image',
-        k: data, w: data, B: data, s: 'original', m: 'none', ko: 'none', undo: null, L: E.createColorKnockoutState(), z: 1, px: 0, py: 0, split: 50,
+        k: data, base: data, jpeg: /jpe?g/i.test(f.type), w: data, B: data, s: 'original', m: 'none', ko: 'none', undo: null, L: E.createColorKnockoutState(), z: 1, px: 0, py: 0, split: 50,
       });
       els.angle.value = '45';
       $('fileInfo').textContent = r.fileInfo;
@@ -319,6 +331,130 @@ export function mount(host) {
   const onPaste = (e) => { const f = [...(e.clipboardData?.files || [])].find((x) => x.type.startsWith('image/')); if (f) loadFile(f); };
   document.addEventListener('paste', onPaste);
 
+  // ---------- image checker ----------
+  const CK_TEXT = {
+    dpi: {
+      ok: (d) => T(`Resolusi cukup: ${d.dpi} DPI.`, `Resolution is fine: ${d.dpi} DPI.`),
+      warn: (d) => T(`Resolusi pas-pasan: ${d.dpi} DPI. Hasil bisa sedikit buram; idealnya 300 DPI.`, `Borderline resolution: ${d.dpi} DPI. The print may look a little soft; 300 DPI is ideal.`),
+      bad: (d) => T(`Resolusi terlalu rendah: ${d.dpi} DPI. Gambar akan pecah. Perkecil lebar cetak atau upscale dulu.`, `Resolution too low: ${d.dpi} DPI. The print will look pixelated. Print smaller or upscale first.`),
+    },
+    background: {
+      ok: () => T('Latar sudah transparan.', 'The background is transparent.'),
+      bad: (d) => T(`Latar ${d.bg === 'white' ? 'putih' : 'hitam'} belum dibuang dan akan ikut tercetak sebagai kotak.`, `The ${d.bg} background has not been removed and will print as a box.`),
+      warn: () => T('Gambar tidak punya bagian transparan. Kalau latarnya tidak ingin dicetak, buang dengan Knockout.', 'The image has no transparent areas. If the background should not print, remove it with Knockout.'),
+    },
+    haze: {
+      ok: () => T('Tidak ada piksel setengah transparan.', 'No semi-transparent pixels.'),
+      warn: (d) => T(`${pct(d.pct)} piksel setengah transparan (bayangan, glow, tepi halus). Printer tetap memberi tinta putih di bawahnya, jadi bisa muncul kabut putih.`, `${pct(d.pct)} of pixels are semi-transparent (shadows, glows, soft edges). The printer still lays white ink under them, which can leave a white haze.`),
+    },
+    fringe: {
+      ok: () => T('Tepi objek bersih.', 'Edges are clean.'),
+      warn: (d) => T(`Ada garis tipis putih/hitam di pinggir objek (${num(d.count)} piksel), sisa latar yang kurang bersih.`, `A thin white/black outline sits on the edges (${num(d.count)} pixels), left over from the background.`),
+    },
+    specks: {
+      ok: () => T('Tidak ada bintik nyasar.', 'No stray specks.'),
+      warn: (d) => T(`${num(d.count)} bintik kecil di area kosong akan ikut tercetak.`, `${num(d.count)} tiny specks in empty areas will print.`),
+    },
+    thin: {
+      ok: () => T('Tidak ada detail yang terlalu tipis untuk tinta putih.', 'No details too thin for white ink.'),
+      warn: () => T('Ada garis/teks lebih tipis dari 0,5 mm di ukuran cetak. Tinta putih bisa putus atau hilang di bagian itu.', 'Some lines or text are thinner than 0.5 mm at print size. The white ink may break or vanish there.'),
+    },
+    shapes: { info: () => T('Hasil raster memang terdiri dari titik/garis kecil, jadi cek tepi, bintik, dan detail tipis dilewati.', 'Raster results are made of small dots/lines on purpose, so the edge, speck and thin-detail checks are skipped.') },
+    jpeg: { warn: () => T('File asli JPEG: tidak punya transparansi dan bisa ada noise kotak-kotak di sekitar objek. Pakai PNG kalau ada.', 'The original is a JPEG: it has no transparency and may show blocky noise around objects. Use a PNG if you have one.') },
+  };
+  const CK_TITLE = {
+    dpi: T('Resolusi', 'Resolution'), background: T('Latar', 'Background'), haze: T('Kabut putih', 'White haze'), fringe: T('Tepi / halo', 'Edge halo'),
+    specks: T('Bintik', 'Specks'), thin: T('Detail tipis', 'Thin details'), shapes: T('Raster', 'Raster'), jpeg: 'JPEG',
+  };
+  const pct = (v) => (v * 100 < 1 ? '<1%' : `${Math.round(v * 100)}%`);
+  const fixLabel = (it) => ({
+    background: it.data.bg ? T(`Buang latar ${it.data.bg === 'white' ? 'putih' : 'hitam'}`, `Remove ${it.data.bg} background`) : '',
+    haze: T('Tegaskan', 'Harden'), fringe: T('Bersihkan tepi', 'Clean edges'), specks: T('Hapus bintik', 'Remove specks'),
+    thin: S.ckThin ? T('Sembunyikan', 'Hide') : T('Tandai', 'Show'), dpi: 'Upscale',
+  })[it.id] || '';
+  const widthCm = () => { const v = Number($('ckWidth').value); return v > 0 ? Math.min(200, v) : 25; };
+  $('ckWidth').value = String(store.get('print_width_cm', 25));
+  let ckGen = 0, ckTimer = 0;
+  function scheduleCheck() {
+    clearTimeout(ckTimer);
+    if (!S.k) { S.ck = null; renderCheck(); return; }
+    if (S.ckThin) S.ckThin = false;
+    const gen = ++ckGen;
+    ckTimer = setTimeout(() => {
+      if (gen !== ckGen || !S.k) return;
+      const img = S.B || S.k;
+      S.dpi = Math.round(dpiFor(img.width, widthCm()) * 10) / 10;
+      try { S.ck = analyze(img, { dpi: S.dpi, raster: S.m !== 'none', jpeg: S.jpeg && S.s === 'original' }); }
+      catch (e) { S.ck = null; console.error(e); }
+      renderCheck();
+    }, 200);
+  }
+  function renderCheck() {
+    const list = $('ckList'), badge = $('ckBadge'), all = $('ckFixAll');
+    $('ckDpi').textContent = S.k ? `${num(Math.round(S.dpi))} DPI` : '';
+    if (!S.k || !S.ck) { badge.hidden = true; all.hidden = true; if (!S.k) list.innerHTML = `<p class="hint">${T('Upload gambar, lalu masalah cetak DTF dicek otomatis di sini. Gratis, tidak memakai kredit.', 'Upload an image and DTF print problems are checked here automatically. Free, no credits used.')}</p>`; return; }
+    const items = S.ck.issues;
+    const probs = items.filter((i) => i.level === 'warn' || i.level === 'bad');
+    badge.hidden = false; badge.className = 'badge ' + (probs.some((i) => i.level === 'bad') ? 'b-danger' : probs.length ? 'b-warning' : 'b-success');
+    badge.textContent = probs.length ? T(`${probs.length} masalah`, `${probs.length} issue${probs.length > 1 ? 's' : ''}`) : T('Siap cetak', 'Print ready');
+    const icons = { ok: 'check', warn: 'alert', bad: 'x', info: 'info' };
+    list.innerHTML = items.map((it) => {
+      const lv = it.level === 'bad' && !CK_TEXT[it.id].bad ? 'warn' : it.level;
+      const text = (CK_TEXT[it.id][lv] || CK_TEXT[it.id].warn || CK_TEXT[it.id].info)(it.data);
+      const fx = it.level === 'ok' || it.level === 'info' ? '' : fixLabel(it);
+      return `<div class="ck-item ck-${it.level}"><span class="ck-ic">${icon(icons[it.level] || 'info', 'i i-sm')}</span><div class="ck-body"><b>${CK_TITLE[it.id]}</b><span>${text}</span></div>${fx ? `<button class="btn btn-secondary btn-sm" data-fix="${it.id}">${fx}</button>` : ''}</div>`;
+    }).join('');
+    all.hidden = !items.some((i) => (i.level === 'warn' || i.level === 'bad') && ['haze', 'fringe', 'specks'].includes(i.id) || (i.id === 'background' && i.data.bg));
+    list.querySelectorAll('[data-fix]').forEach((b) => (b.onclick = () => runFix(b.dataset.fix)));
+    controls();
+  }
+  // Apply a pixel fix to the current result; a later raster also starts from the fixed image.
+  function commitFix(d, msg) {
+    S.B = d; S.w = d; if (S.m === 'none') S.base = d;
+    if (S.s === 'original') S.s = 'cleanup';
+    show(); prepareBlob(); say(msg);
+  }
+  function runFix(id) {
+    if (!S.ck || S.busy) return;
+    if (id === 'dpi') { location.hash = 'upscale'; return; }
+    if (id === 'thin') {
+      S.ckThin = !S.ckThin;
+      ctxRes.putImageData(S.ckThin ? thinOverlay(S.B || S.k, S.ck.masks) : (S.B || S.k), 0, 0);
+      renderCheck();
+      if (S.ckThin) say(T('Bagian merah terlalu tipis untuk tinta putih. Tebalkan di desain asli bila perlu.', 'The red parts are too thin for white ink. Thicken them in the original design if needed.'), 'warn');
+      return;
+    }
+    if (id === 'background') { const bg = S.ck.issues.find((i) => i.id === 'background')?.data.bg; if (bg) $('ko').querySelector(`[data-v=${bg}]`).click(); return; }
+    capture();
+    const cur = S.B || S.k;
+    if (id === 'haze') commitFix(fixHaze(cur), T('Piksel setengah transparan dibuat tegas (penuh atau transparan).', 'Semi-transparent pixels were made solid or fully transparent.'));
+    if (id === 'fringe') commitFix(cleanFringe(cur), T('Garis sisa di pinggir objek dibersihkan.', 'The leftover outline on the edges was cleaned.'));
+    if (id === 'specks') commitFix(fixSpecks(cur, S.ck.masks), T('Bintik kecil dihapus.', 'Tiny specks were removed.'));
+  }
+  $('ckFixAll').onclick = () => {
+    if (!S.ck || S.busy) return;
+    setBusy(true, T('Memperbaiki gambar…', 'Fixing the image…'), 0.5);
+    requestAnimationFrame(() => {
+      try {
+        capture();
+        const opts = { dpi: S.dpi, raster: S.m !== 'none', jpeg: false };
+        let d = S.B || S.k;
+        const bg = S.ck.issues.find((i) => i.id === 'background')?.data.bg;
+        if (bg) {
+          d = E.knockoutBW(S.w, bg); S.ko = bg;
+          S.s = S.m !== 'none' ? `${S.m}_knockout_${bg}` : `knockout_${bg}`;
+        }
+        d = fixHaze(d);
+        if (S.m === 'none') d = cleanFringe(d);
+        const a = analyze(d, opts);
+        if (a.masks.specks?.count) d = fixSpecks(d, a.masks);
+        setBusy(false);
+        commitFix(d, T('Semua masalah yang bisa diperbaiki otomatis sudah diperbaiki. Cek lagi hasilnya sebelum mengunduh.', 'Everything that can be fixed automatically was fixed. Check the result before downloading.'));
+      } catch (e) { setBusy(false); say(`${T('Perbaikan gagal', 'Fix failed')}: ${e?.message || e}`, 'error'); }
+    });
+  };
+  $('ckWidth').addEventListener('change', () => { const v = widthCm(); $('ckWidth').value = String(v); store.set('print_width_cm', v); scheduleCheck(); prepareBlob(); });
+
   // ---------- raster ----------
   async function runRaster(kind) {
     if (!S.k) { say(T('Upload gambar terlebih dahulu sebelum membuat raster.', 'Upload an image before making a raster.'), 'warn'); return; }
@@ -326,7 +462,7 @@ export function mount(host) {
     const lpi = E.clampLpi(els.lpi.value), angle = E.normalizeLineAngle(els.angle.value);
     const label = kind === 'round' ? T('Raster bulat', 'Round raster') : T(`Raster garis ${String(angle).replace('.', ',')}°`, `Line raster ${angle}°`);
     setBusy(true, `Membuat ${label} ${lpi} LPI…`, 0);
-    S.job = E.raster(S.k, { kind, lpi, angle, dots: S.dots, blackGarment: S.garment === 'black', onProgress: (p) => { els.busyBar.style.width = Math.round(p * 100) + '%'; els.busyText.textContent = `Membuat ${label} ${lpi} LPI… ${Math.round(p * 100)}%`; } });
+    S.job = E.raster(S.base || S.k, { kind, lpi, angle, dots: S.dots, blackGarment: S.garment === 'black', onProgress: (p) => { els.busyBar.style.width = Math.round(p * 100) + '%'; els.busyText.textContent = `Membuat ${label} ${lpi} LPI… ${Math.round(p * 100)}%`; } });
     try {
       const out = await S.job.promise;
       Object.assign(S, { B: out, w: out, s: kind === 'round' ? 'raster_round' : 'raster_line', m: kind === 'round' ? 'raster_round' : 'raster_line', ko: 'none' });
@@ -417,7 +553,7 @@ export function mount(host) {
   els.reset.onclick = () => {
     S.job?.cancel();
     if (S.blobUrl) URL.revokeObjectURL(S.blobUrl);
-    Object.assign(S, { name: 'image', fileName: 'image', k: null, w: null, B: null, s: 'original', m: 'none', ko: 'none', undo: null, L: E.createColorKnockoutState(), blobUrl: '', z: 1, px: 0, py: 0 });
+    Object.assign(S, { name: 'image', fileName: 'image', k: null, base: null, ck: null, w: null, B: null, s: 'original', m: 'none', ko: 'none', undo: null, L: E.createColorKnockoutState(), blobUrl: '', z: 1, px: 0, py: 0 });
     els.lpi.value = '45'; els.angle.value = '45'; lpiLabel();
     S.garment = 'white'; radio($('garment'), 'white'); setBg('checker');
     $('fileInfo').textContent = T('Belum ada gambar', 'No image yet');
@@ -442,7 +578,7 @@ export function mount(host) {
         await new Promise((res) => {
           const c = document.createElement('canvas'); c.width = S.B.width; c.height = S.B.height;
           c.getContext('2d').putImageData(S.B, 0, 0);
-          c.toBlob(async (b) => { if (b) { S.blobUrl = URL.createObjectURL(await dpiBlob(b)); S.blobFor = S.B; } res(); }, 'image/png');
+          c.toBlob(async (b) => { if (b) { S.blobUrl = URL.createObjectURL(await dpiBlob(b, S.dpi)); S.blobFor = S.B; } res(); }, 'image/png');
         });
       }
       const a = document.createElement('a');

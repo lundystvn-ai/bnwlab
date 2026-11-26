@@ -269,7 +269,7 @@ export function raster(src, { kind, lpi, angle, blackGarment, onProgress, dots =
 }
 
 export const OPERATION_LABELS = {
-  original: 'Original',
+  original: 'Original', cleanup: 'Perbaikan file',
   knockout_black: 'Knockout Black', knockout_white: 'Knockout White', knockout_color: 'Knockout Warna',
   raster_round: 'Raster Bulat', raster_line: 'Raster Garis',
   raster_round_knockout_black: 'Raster Bulat + Knockout Black', raster_round_knockout_white: 'Raster Bulat + Knockout White',
@@ -277,6 +277,7 @@ export const OPERATION_LABELS = {
   raster_line_knockout_white: 'Raster Garis + Knockout White', raster_line_knockout_color: 'Raster Garis + Knockout Warna',
 };
 export const OPERATION_SLUG = {
+  cleanup: 'diperbaiki',
   raster_round: 'raster-bulat', raster_line: 'raster-garis', knockout_black: 'knockout-black', knockout_white: 'knockout-white',
   knockout_color: 'knockout-warna', raster_round_knockout_black: 'raster-bulat-knockout-black',
   raster_round_knockout_white: 'raster-bulat-knockout-white', raster_round_knockout_color: 'raster-bulat-knockout-warna',
