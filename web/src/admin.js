@@ -86,6 +86,70 @@ export function mount(host) {
     } catch {}
   }
 
+  // ---------- Midtrans: automatic QRIS ----------
+  async function midtransBox() {
+    const box = $('mtBox'); if (!box) return;
+    const { invoke } = await import('./supa.js');
+    let st;
+    try { st = await invoke('midtrans', { action: 'config_status' }); }
+    catch (e) { box.innerHTML = notice(esc(e.message), 'error'); return; }
+    if (!alive || !box.isConnected) return;
+    const auto = cfg.payMode === 'midtrans';
+    const modeName = st.mode === 'production' ? 'Production' : 'Sandbox (uji coba)';
+    box.innerHTML = `
+      <div class="toolbar" style="margin:0"><div><h2 style="margin:0;font-size:var(--text-lg)">Pembayaran otomatis (Midtrans)</h2>
+        <p class="small muted" style="margin:2px 0 0">Pembeli scan QRIS khusus pesanannya; kredit masuk sendiri begitu Midtrans mengabarkan pembayaran lunas. Tidak perlu konfirmasi manual.</p></div>
+        <span class="grow"></span>${auto ? '<span class="badge b-success">Aktif untuk pembeli</span>' : '<span class="badge">Belum dipakai</span>'}</div>
+      <div class="two">
+        <div class="stack">
+          <div class="row"><span class="lbl" style="width:110px">Status</span>${st.configured ? `<span class="badge b-success">Server Key tersimpan</span> <span class="xs mono muted">${esc(st.masked)}</span>` : '<span class="badge b-danger">Belum diisi</span>'}</div>
+          <div class="row"><span class="lbl" style="width:110px">Mode</span><b>${esc(modeName)}</b></div>
+          <form class="stack" id="mtForm">
+            <div class="field"><label for="mtMode">Mode</label><select id="mtMode"><option value="sandbox"${st.mode !== 'production' ? ' selected' : ''}>Sandbox (uji coba, tanpa uang sungguhan)</option><option value="production"${st.mode === 'production' ? ' selected' : ''}>Production (pembayaran sungguhan)</option></select></div>
+            <div class="field"><label for="mtKey">Server Key ${st.configured ? '<span class="muted">(kosongkan kalau tidak diganti)</span>' : ''}</label><input id="mtKey" type="password" autocomplete="off" spellcheck="false" placeholder="${st.mode === 'production' ? 'Mid-server-…' : 'SB-Mid-server-…'}"></div>
+            <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" type="submit">Simpan</button><button class="btn btn-secondary" type="button" id="mtTest"${st.configured ? '' : ' disabled'}>Tes koneksi</button></div>
+          </form>
+          <div id="mtMsg"></div>
+        </div>
+        <div class="stack">
+          <div class="field"><label for="mtHook">Payment Notification URL</label>
+            <div class="row"><input id="mtHook" readonly value="${esc(st.webhook)}" class="mono" style="flex:1;min-width:0"><button class="btn btn-secondary" type="button" id="mtCopy">${icon('link', 'i i-sm')}Salin</button></div></div>
+          <ol class="qris-steps small" style="margin:0">
+            <li>Masuk ke dashboard Midtrans, pilih lingkungan yang sama dengan mode di kiri (Sandbox atau Production).</li>
+            <li><b>Settings → Access Keys</b>: salin <b>Server Key</b>, tempel di kolom kiri, lalu Simpan dan Tes koneksi.</li>
+            <li><b>Settings → Configuration → Payment Notification URL</b>: tempel URL di atas, lalu simpan.</li>
+            <li>Setelah tes berhasil, nyalakan pembayaran otomatis di bawah.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="row" style="flex-wrap:wrap;border-top:1px solid var(--color-border);padding-top:12px">
+        <span class="small">Cara bayar yang dilihat pembeli:</span>
+        <div class="seg" role="radiogroup" id="mtPay" style="min-width:300px"><button role="radio" data-m="manual" aria-checked="${!auto}">QRIS manual (konfirmasi admin)</button><button role="radio" data-m="midtrans" aria-checked="${auto}"${st.configured ? '' : ' disabled'}>Otomatis (Midtrans)</button></div>
+      </div>
+      ${auto && st.mode !== 'production' ? notice('Mode Sandbox sedang aktif untuk pembeli: QRIS tidak bisa dibayar dengan uang sungguhan. Ganti ke Production setelah akun Midtrans terverifikasi, atau kembali ke QRIS manual.', 'warn') : ''}`;
+    $('mtCopy').onclick = async () => { try { await navigator.clipboard.writeText(st.webhook); toast('URL disalin.'); } catch { $('mtHook').select(); } };
+    $('mtForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = e.submitter; if (btn) btn.disabled = true;
+      try { const r = await invoke('midtrans', { action: 'save_config', mode: $('mtMode').value, server_key: $('mtKey').value.trim() }); toast(r.message); await midtransBox(); }
+      catch (err) { $('mtMsg').innerHTML = notice(esc(err.message), 'error'); if (btn) btn.disabled = false; }
+    };
+    $('mtTest').onclick = async () => {
+      const b = $('mtTest'); b.disabled = true;
+      try { const r = await invoke('midtrans', { action: 'test' }); $('mtMsg').innerHTML = notice(esc(r.message), 'ok'); }
+      catch (err) { $('mtMsg').innerHTML = notice(esc(err.message), 'error'); }
+      finally { b.disabled = false; }
+    };
+    $('mtPay').onclick = async (e) => {
+      const b = e.target.closest('[data-m]'); if (!b || b.disabled || b.getAttribute('aria-checked') === 'true') return;
+      const m = b.dataset.m;
+      if (m === 'midtrans' && !(await confirmBox({ title: 'Pakai pembayaran otomatis?', body: st.mode === 'production' ? 'Pembeli akan membayar lewat QRIS Midtrans dan kredit masuk otomatis.' : 'Mode Sandbox: QRIS tidak bisa dibayar dengan uang sungguhan. Pakai ini hanya untuk uji coba.', okLabel: 'Aktifkan' }))) return;
+      const { error } = await db.rpc('admin_set_setting', { p_key: 'pay_mode', p_value: m });
+      if (error) { $('mtMsg').innerHTML = notice(esc(error.message), 'error'); return; }
+      cfg.payMode = m; toast(m === 'midtrans' ? 'Pembayaran otomatis aktif.' : 'Kembali ke QRIS manual.'); midtransBox();
+    };
+  }
+
   // ---------- Telegram notifications ----------
   async function telegramBox() {
     const box = $('tgBox'); if (!box) return;
@@ -307,7 +371,9 @@ export function mount(host) {
           <div class="qr-preview" id="qrPrev">${await preview(cfg.qrisStatic)}</div>
         </section>
       </div>
+      <section class="card stack" style="margin-top:16px" id="mtBox"><div class="empty">Memuat…</div></section>
       <section class="card stack" style="margin-top:16px" id="tgBox"><div class="empty">Memuat…</div></section>`;
+    midtransBox();
     telegramBox();
     let pending = null;
     const setCandidate = async (p, src) => {

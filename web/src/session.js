@@ -1,5 +1,5 @@
 // Who is signed in, their role, region and credit balance. Sign-in / sign-up / reset dialogs.
-import { db, onAfterInvoke } from './supa.js';
+import { db, onAfterInvoke, invoke } from './supa.js';
 import { cfg, IG_DM } from './config.js';
 import { $, esc, rupiah, openModal, closeModal, notice } from './util.js';
 import { leakedCount, leakedMessage } from './pwned.js';
@@ -178,6 +178,7 @@ export async function loadSettings() {
   for (const r of data || []) {
     if (r.key === 'qris_static' && r.value) cfg.qrisStatic = r.value;
     if (r.key === 'kontak_whatsapp') cfg.kontakWhatsApp = r.value;
+    if (r.key === 'pay_mode') cfg.payMode = r.value;
   }
 }
 
@@ -203,6 +204,7 @@ export async function topupDialog(reason = '') {
 }
 
 async function startTopup(packId, btn) {
+  if (cfg.payMode === 'midtrans') return midtransTopup(packId, btn);
   btn.disabled = true;
   let { data, error } = await db.rpc('create_topup', { p_package: packId });
   btn.disabled = false;
@@ -251,6 +253,74 @@ async function startTopup(packId, btn) {
       <p class="muted small">${L('Biasanya tidak lama. Saldo diperbarui sendiri saat kamu kembali ke halaman ini.', 'This usually doesn\'t take long. Your balance updates by itself when you come back to this page.')}</p>
       <div class="modal-actions"><a class="btn btn-secondary" href="${IG_DM}" target="_blank" rel="noopener">${L('Kirim bukti via Instagram', 'Send proof via Instagram')}</a><button class="btn btn-primary" data-close>${L('Selesai', 'Done')}</button></div>`);
   };
+}
+
+// ---------- automatic QRIS through Midtrans: credits arrive by themselves after paying ----------
+async function midtransTopup(packId, btn) {
+  btn.disabled = true;
+  let data;
+  try { data = await invoke('midtrans', { action: 'create', package: packId }); }
+  catch (e) { btn.disabled = false; $('tpMsg').innerHTML = notice(esc(tr(e.message)), 'error'); return; }
+  btn.disabled = false;
+  let svg = '', png = '';
+  try {
+    const QR = (await import('qrcode')).default;
+    svg = await QR.toString(data.qr_string, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#000000', light: '#ffffff' } });
+    png = await QR.toDataURL(data.qr_string, { errorCorrectionLevel: 'M', margin: 3, width: 720 });
+  } catch (e) { $('tpMsg').innerHTML = notice(L('QRIS tidak dapat ditampilkan: ', 'Could not show the QRIS code: ') + esc(e.message), 'error'); return; }
+  const { merchantName } = await import('./qris.js');
+  const ref = String(data.id).slice(0, 8).toUpperCase();
+  const until = new Date(data.expires_at);
+  const pack = state.packages.find((x) => x.id === packId) || { nama: data.nama };
+  openModal(`
+    <h3>${L('Bayar', 'Pay')} ${rupiah(data.harga)}</h3>
+    <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${data.kredit} ${L('kredit', 'credits')} · ${L('kode', 'code')} <span class="mono">${ref}</span></p>
+    ${data.sandbox ? notice(L('Mode uji coba: QRIS ini tidak bisa dibayar dengan uang sungguhan.', 'Test mode: this QRIS cannot be paid with real money.'), 'warn') : ''}
+    <div class="qris-box"><div class="qris">${svg}</div>
+      <div class="qris-meta"><b>${esc(merchantName(data.qr_string) || 'BNW Lab')}</b><span class="mono">${rupiah(data.harga)}</span></div></div>
+    <ol class="qris-steps small">
+      <li>${L('Buka GoPay, OVO, DANA, ShopeePay, atau m-banking, lalu scan QRIS ini. Di HP: simpan gambar QR, lalu pilih dari galeri di aplikasi pembayaran.', 'Open GoPay, OVO, DANA, ShopeePay or your banking app and scan this QRIS. On a phone: save the QR image, then pick it from your gallery in the payment app.')}</li>
+      <li>${L(`Nominal <b>${rupiah(data.harga)}</b> sudah terisi. Bayar.`, `The amount <b>${rupiah(data.harga)}</b> is filled in. Pay.`)}</li>
+      <li>${L('Selesai. Kredit masuk otomatis beberapa detik setelah pembayaran, tanpa perlu konfirmasi.', 'Done. Credits are added automatically a few seconds after you pay, no confirmation needed.')}</li>
+    </ol>
+    <div class="mt-live" id="tpLive" aria-live="polite"><span class="spin"></span><span id="tpLiveText">${L('Menunggu pembayaran…', 'Waiting for payment…')}</span></div>
+    <div id="tpMsg"></div>
+    <div class="modal-actions"><button class="btn btn-quiet" id="tpCancel">${L('Batal', 'Cancel')}</button><a class="btn btn-secondary" id="tpSave" href="${png}" download="qris-bnwlab-${ref}.png">${L('Simpan gambar QR', 'Save QR image')}</a></div>`);
+  let stopped = false, busy = false;
+  const left = () => {
+    const ms = until - Date.now();
+    if (ms <= 0) return L('kedaluwarsa', 'expired');
+    const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+  const tick = () => { const t = $('tpLiveText'); if (t && !stopped) t.textContent = L(`Menunggu pembayaran… berlaku ${left()}`, `Waiting for payment… valid for ${left()}`); };
+  const done = async (paid) => {
+    stopped = true; clearInterval(timer); clearInterval(clock);
+    if (paid) {
+      await refreshCredits();
+      openModal(`
+        <h3>${L('Pembayaran diterima!', 'Payment received!')}</h3>
+        ${notice(L(`<b>${data.kredit} kredit</b> sudah masuk. Saldo sekarang <b>${state.credits}</b> kredit.`, `<b>${data.kredit} credits</b> have been added. Your balance is now <b>${state.credits}</b> credits.`), 'ok')}
+        <div class="modal-actions"><button class="btn btn-primary" data-close>${L('Selesai', 'Done')}</button></div>`);
+    } else {
+      const live = $('tpLive'); if (live) live.innerHTML = notice(L('QRIS ini sudah kedaluwarsa. Buat QRIS baru untuk membayar.', 'This QRIS has expired. Make a new one to pay.'), 'warn');
+      const save = $('tpSave'); if (save) { save.outerHTML = `<button class="btn btn-primary" id="tpAgain">${L('Buat QRIS baru', 'Make a new QRIS')}</button>`; $('tpAgain').onclick = () => topupDialog(); }
+    }
+  };
+  const check = async () => {
+    if (stopped || busy) return;
+    if (!$('tpLive')) { stopped = true; clearInterval(timer); clearInterval(clock); return; }   // dialog closed
+    busy = true;
+    try {
+      const r = await invoke('midtrans', { action: 'status', id: data.id });
+      if (r.status === 'paid') await done(true);
+      else if (r.status === 'expired' || (Date.now() > until.getTime() + 60000 && r.status !== 'pending')) await done(false);
+      else if (Date.now() > until.getTime() + 120000) await done(false);
+    } catch { /* try again on the next tick */ } finally { busy = false; }
+  };
+  const timer = setInterval(check, 4000);
+  const clock = setInterval(tick, 1000); tick();
+  $('tpCancel').onclick = async () => { stopped = true; clearInterval(timer); clearInterval(clock); await db.rpc('cancel_topup', { p_id: data.id }); closeModal(); };
 }
 
 export function renderCreditChip() {
