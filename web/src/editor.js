@@ -6,6 +6,8 @@ import { $, esc, icon, notice, toast, uuid, fmtDate, num } from './util.js';
 import { L as T, tr, lang } from './i18n.js';
 import { store } from './config.js';
 import { analyze, dpiFor, fixHaze, cleanFringe, fixSpecks, thinOverlay } from './checker.js';
+import { issueText, issueTitle, ISSUE_ICON } from './checktext.js';
+import { takeHandoff } from './handoff.js';
 import { state, setCredits, topupDialog, authDialog, clearSession, isAdmin, isManager, regionId, regionTz } from './session.js';
 
 // Downloaded PNGs open at 300 DPI in RIP software.
@@ -332,41 +334,6 @@ export function mount(host) {
   document.addEventListener('paste', onPaste);
 
   // ---------- image checker ----------
-  const CK_TEXT = {
-    dpi: {
-      ok: (d) => T(`Resolusi cukup: ${d.dpi} DPI.`, `Resolution is fine: ${d.dpi} DPI.`),
-      warn: (d) => T(`Resolusi pas-pasan: ${d.dpi} DPI. Hasil bisa sedikit buram; idealnya 300 DPI.`, `Borderline resolution: ${d.dpi} DPI. The print may look a little soft; 300 DPI is ideal.`),
-      bad: (d) => T(`Resolusi terlalu rendah: ${d.dpi} DPI. Gambar akan pecah. Perkecil lebar cetak atau upscale dulu.`, `Resolution too low: ${d.dpi} DPI. The print will look pixelated. Print smaller or upscale first.`),
-    },
-    background: {
-      ok: () => T('Latar sudah transparan.', 'The background is transparent.'),
-      bad: (d) => T(`Latar ${d.bg === 'white' ? 'putih' : 'hitam'} belum dibuang dan akan ikut tercetak sebagai kotak.`, `The ${d.bg} background has not been removed and will print as a box.`),
-      warn: () => T('Gambar tidak punya bagian transparan. Kalau latarnya tidak ingin dicetak, buang dengan Knockout.', 'The image has no transparent areas. If the background should not print, remove it with Knockout.'),
-    },
-    haze: {
-      ok: () => T('Tidak ada piksel setengah transparan.', 'No semi-transparent pixels.'),
-      warn: (d) => T(`${pct(d.pct)} piksel setengah transparan (bayangan, glow, tepi halus). Printer tetap memberi tinta putih di bawahnya, jadi bisa muncul kabut putih.`, `${pct(d.pct)} of pixels are semi-transparent (shadows, glows, soft edges). The printer still lays white ink under them, which can leave a white haze.`),
-    },
-    fringe: {
-      ok: () => T('Tepi objek bersih.', 'Edges are clean.'),
-      warn: (d) => T(`Ada garis tipis putih/hitam di pinggir objek (${num(d.count)} piksel), sisa latar yang kurang bersih.`, `A thin white/black outline sits on the edges (${num(d.count)} pixels), left over from the background.`),
-    },
-    specks: {
-      ok: () => T('Tidak ada bintik nyasar.', 'No stray specks.'),
-      warn: (d) => T(`${num(d.count)} bintik kecil di area kosong akan ikut tercetak.`, `${num(d.count)} tiny specks in empty areas will print.`),
-    },
-    thin: {
-      ok: () => T('Tidak ada detail yang terlalu tipis untuk tinta putih.', 'No details too thin for white ink.'),
-      warn: () => T('Ada garis/teks lebih tipis dari 0,5 mm di ukuran cetak. Tinta putih bisa putus atau hilang di bagian itu.', 'Some lines or text are thinner than 0.5 mm at print size. The white ink may break or vanish there.'),
-    },
-    shapes: { info: () => T('Hasil raster memang terdiri dari titik/garis kecil, jadi cek tepi, bintik, dan detail tipis dilewati.', 'Raster results are made of small dots/lines on purpose, so the edge, speck and thin-detail checks are skipped.') },
-    jpeg: { warn: () => T('File asli JPEG: tidak punya transparansi dan bisa ada noise kotak-kotak di sekitar objek. Pakai PNG kalau ada.', 'The original is a JPEG: it has no transparency and may show blocky noise around objects. Use a PNG if you have one.') },
-  };
-  const CK_TITLE = {
-    dpi: T('Resolusi', 'Resolution'), background: T('Latar', 'Background'), haze: T('Kabut putih', 'White haze'), fringe: T('Tepi / halo', 'Edge halo'),
-    specks: T('Bintik', 'Specks'), thin: T('Detail tipis', 'Thin details'), shapes: T('Raster', 'Raster'), jpeg: 'JPEG',
-  };
-  const pct = (v) => (v * 100 < 1 ? '<1%' : `${Math.round(v * 100)}%`);
   const fixLabel = (it) => ({
     background: it.data.bg ? T(`Buang latar ${it.data.bg === 'white' ? 'putih' : 'hitam'}`, `Remove ${it.data.bg} background`) : '',
     haze: T('Tegaskan', 'Harden'), fringe: T('Bersihkan tepi', 'Clean edges'), specks: T('Hapus bintik', 'Remove specks'),
@@ -397,12 +364,10 @@ export function mount(host) {
     const probs = items.filter((i) => i.level === 'warn' || i.level === 'bad');
     badge.hidden = false; badge.className = 'badge ' + (probs.some((i) => i.level === 'bad') ? 'b-danger' : probs.length ? 'b-warning' : 'b-success');
     badge.textContent = probs.length ? T(`${probs.length} masalah`, `${probs.length} issue${probs.length > 1 ? 's' : ''}`) : T('Siap cetak', 'Print ready');
-    const icons = { ok: 'check', warn: 'alert', bad: 'x', info: 'info' };
     list.innerHTML = items.map((it) => {
-      const lv = it.level === 'bad' && !CK_TEXT[it.id].bad ? 'warn' : it.level;
-      const text = (CK_TEXT[it.id][lv] || CK_TEXT[it.id].warn || CK_TEXT[it.id].info)(it.data);
+      const text = issueText(it);
       const fx = it.level === 'ok' || it.level === 'info' ? '' : fixLabel(it);
-      return `<div class="ck-item ck-${it.level}"><span class="ck-ic">${icon(icons[it.level] || 'info', 'i i-sm')}</span><div class="ck-body"><b>${CK_TITLE[it.id]}</b><span>${text}</span></div>${fx ? `<button class="btn btn-secondary btn-sm" data-fix="${it.id}">${fx}</button>` : ''}</div>`;
+      return `<div class="ck-item ck-${it.level}"><span class="ck-ic">${icon(ISSUE_ICON[it.level] || 'info', 'i i-sm')}</span><div class="ck-body"><b>${issueTitle(it.id)}</b><span>${text}</span></div>${fx ? `<button class="btn btn-secondary btn-sm" data-fix="${it.id}">${fx}</button>` : ''}</div>`;
     }).join('');
     all.hidden = !items.some((i) => (i.level === 'warn' || i.level === 'bad') && ['haze', 'fringe', 'specks'].includes(i.id) || (i.id === 'background' && i.data.bg));
     list.querySelectorAll('[data-fix]').forEach((b) => (b.onclick = () => runFix(b.dataset.fix)));
@@ -626,6 +591,10 @@ export function mount(host) {
   document.addEventListener('keydown', onKey);
 
   show();
+  // image handed over from the Cek Gambar page
+  const handed = takeHandoff();
+  if (handed) loadFile(handed);
+
   return () => {
     S.job?.cancel(); ro.disconnect();
     document.removeEventListener('paste', onPaste); document.removeEventListener('keydown', onKey);

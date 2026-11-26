@@ -5,8 +5,8 @@ import { state, onSession, applySession, clearSession, signOut, authDialog, topu
 import { renderLanding, pricing } from './landing.js';
 import { lang, L, setLang } from './i18n.js';
 
-const APP_ROUTES = ['editor', 'upscale', 'kredit', 'admin', 'support'];
-const OPEN_ROUTES = ['support'];   // app pages that guests may open too
+const APP_ROUTES = ['editor', 'upscale', 'kredit', 'admin', 'support', 'cek'];
+const OPEN_ROUTES = ['support', 'cek'];   // app pages that guests may open too
 const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];
 const LEGAL_ROUTES = ['privasi', 'ketentuan'];
 const BASE_TITLE = document.title;
@@ -46,6 +46,7 @@ async function render() {
       : route === 'upscale' ? await import('./upscale.js')
       : route === 'kredit' ? await import('./credits.js')
       : route === 'support' ? await import('./support.js')
+      : route === 'cek' ? await import('./check.js')
       : await import('./admin.js');
     unmount = mod.mount(host) || null;
     if (isAdmin()) Promise.all([db.rpc('admin_stats'), db.from('support_tickets').select('id', { count: 'exact', head: true }).eq('status', 'baru')])
