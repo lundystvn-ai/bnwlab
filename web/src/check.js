@@ -6,7 +6,7 @@ import { issueText, issueTitle, ISSUE_ICON, summary } from './checktext.js';
 import { giveHandoff } from './handoff.js';
 import { store } from './config.js';
 import { db, invoke } from './supa.js';
-import { $, esc, icon, notice, num, toast, uuid } from './util.js';
+import { $, esc, icon, notice, num, toast, uuid, previewMark } from './util.js';
 import { L, tr } from './i18n.js';
 import { state, authDialog, topupDialog, setCredits, refreshCredits, regionId } from './session.js';
 
@@ -87,7 +87,9 @@ export function mount(host) {
   function draw() {
     const c = $('chkCanvas'); if (!c || !C.img) return;
     c.width = C.img.width; c.height = C.img.height; c.style.cursor = (C.pipe || C.bgMode) && !thinOn ? 'crosshair' : '';
-    c.getContext('2d').putImageData(thinOn && C.result ? thinOverlay(C.img, C.result.masks) : C.img, 0, 0);
+    const cx = c.getContext('2d');
+    cx.putImageData(thinOn && C.result ? thinOverlay(C.img, C.result.masks) : C.img, 0, 0);
+    if (C.img !== C.orig) previewMark(cx, C.img.width, C.img.height);
   }
   function busyUi() {
     const b = $('chkBusy'); if (!b) return;

@@ -2,7 +2,7 @@
 // rows as the previous site, in the new editor layout.
 import * as E from './engine.js';
 import { db } from './supa.js';
-import { $, esc, icon, notice, toast, uuid, fmtDate, num } from './util.js';
+import { $, esc, icon, notice, toast, uuid, fmtDate, num, previewMark } from './util.js';
 import { L as T, tr, lang } from './i18n.js';
 import { store } from './config.js';
 import { takeHandoff } from './handoff.js';
@@ -212,6 +212,7 @@ export function mount(host) {
       }
       ctxOrig.putImageData(S.k, 0, 0);
       ctxRes.putImageData(S.B || S.k, 0, 0);
+      if (S.B && S.B !== S.k) previewMark(ctxRes, S.k.width, S.k.height);
       const cm = (px) => ((px / 300) * 2.54).toFixed(1).replace('.', ',');
       $('stSize').textContent = `${num(S.k.width)} × ${num(S.k.height)} px`;
       $('printSize').textContent = `${cm(S.k.width)} × ${cm(S.k.height)} cm`;
