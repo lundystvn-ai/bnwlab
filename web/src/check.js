@@ -74,7 +74,8 @@ export function mount(host) {
   $('chkWidth').value = String(store.get('print_width_cm', 25));
   const say = (m, t = 'ok') => { C.msg = m ? [m, t] : null; const el = $('chkMsg'); if (el) el.innerHTML = m ? notice(m, t) : ''; };
   const needLogin = (then) => { if (state.user) return false; authDialog('daftar', '', then); return true; };
-  const upScale = () => (300 / dpi() <= 2 ? 2 : 4);
+  // One upscale that reaches 300 DPI at the chosen width: 2×, 4× or 8× (8× if even that is not enough).
+  const upScale = () => { const need = 300 / dpi(); return need <= 2 ? 2 : need <= 4 ? 4 : 8; };
 
   // ---------- view ----------
   function draw() {
