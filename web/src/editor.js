@@ -79,7 +79,7 @@ export function mount(host) {
         <div class="pfoot">
           <div class="status-msg" id="msg" role="status" aria-live="polite"></div>
           <div class="row"><button class="btn btn-secondary" id="undo" disabled>${icon('undo', 'i i-sm')}Undo</button><button class="btn btn-secondary" id="reset" disabled>${icon('reset', 'i i-sm')}Reset</button></div>
-          <button class="btn btn-primary btn-lg" id="dl" disabled>${icon('download', 'i i-sm')}Unduh PNG <span class="cost">· 1 kredit</span></button>
+          <button class="btn btn-primary btn-lg" id="dl" disabled>${icon('download', 'i i-sm')}Unduh PNG <span class="cost">· 3 kredit</span></button>
         </div>
       </div>
       <div id="tabHist" hidden style="padding:12px;display:flex;flex-direction:column;gap:8px">
@@ -408,7 +408,7 @@ export function mount(host) {
     try {
       const { data, error } = await db.rpc('consume_credit', { p_ref: uuid() });
       if (error) {
-        if (/insufficient_credits/.test(error.message)) topupDialog('Kredit habis. Satu unduhan PNG memakai 1 kredit.');
+        if (/insufficient_credits/.test(error.message)) topupDialog('Kredit tidak cukup. Satu unduhan PNG memakai 3 kredit.');
         else if (/not_authenticated/.test(error.message)) { clearSession(); authDialog('masuk'); }
         else say('Gagal memotong kredit: ' + esc(error.message), 'error');
         return;

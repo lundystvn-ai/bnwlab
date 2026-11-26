@@ -10,11 +10,11 @@ const MAX_POLLS = 360;
 const NOISE = [['-1', 'Tidak ada'], ['0', 'Rendah'], ['1', 'Sedang'], ['2', 'Tinggi'], ['3', 'Tertinggi']];
 
 export function mount(host) {
-  let costs = { 2: 2, 4: 3, 8: 5, 16: 8 };
+  let costs = { 2: 1, 4: 1, 8: 1, 16: 1 };
   let pollTimer = null, alive = true, file = null, metricsGen = 0;
   host.innerHTML = `
   <div class="page"><div class="page-in">
-    <div class="page-head"><div><h1>Upscale gambar</h1><p>Perbesar gambar kecil lewat BigJPG. Gambar diunggah ke server untuk diproses; kredit dikembalikan otomatis kalau gagal.</p></div></div>
+    <div class="page-head"><div><h1>Upscale gambar</h1><p>Perbesar gambar kecil lewat BigJPG, 1 kredit per gambar. Gambar diunggah ke server untuk diproses; kredit dikembalikan otomatis kalau gagal.</p></div></div>
     <div class="two">
       <form class="card stack" id="upForm" novalidate>
         <label class="dropzone" id="upDrop" style="width:100%;padding:24px" tabindex="0">
@@ -31,7 +31,7 @@ export function mount(host) {
         <div class="field"><label for="upNoise">Kurangi noise</label><select id="upNoise">${NOISE.map(([v, l]) => `<option value="${v}"${v === '0' ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
         <div id="upNotice" aria-live="polite"></div>
         <div id="upProgress" hidden></div>
-        <button class="btn btn-primary btn-lg" type="submit" id="upSubmit">${icon('expand', 'i i-sm')}Upscale <span class="cost" id="upCost">· 3 kredit</span></button>
+        <button class="btn btn-primary btn-lg" type="submit" id="upSubmit">${icon('expand', 'i i-sm')}Upscale <span class="cost" id="upCost">· 1 kredit</span></button>
       </form>
       <div class="card" id="upResult"><div class="empty">${icon('expand')}<br>Hasil upscale akan tampil di sini.</div></div>
     </div>

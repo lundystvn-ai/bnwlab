@@ -28,9 +28,9 @@ export function renderLanding(view) {
         <h2>Tiga alat, satu alur kerja</h2>
         <p class="sub">Semua yang dibutuhkan untuk menyiapkan file sebelum masuk RIP.</p>
         <div class="cards">
-          <article class="card feat"><div class="ic">${icon('scan')}</div><h3>Knockout</h3><p>Hapus hitam, putih, atau warna pilihan jadi transparan. Ada pengambil warna, mode area, toleransi, dan pembanding sebelum/sesudah.</p><div class="meta">Di browser · 1 kredit per unduhan</div></article>
-          <article class="card feat"><div class="ic">${icon('halftone')}</div><h3>Raster Halftone</h3><p>Ubah gradasi jadi raster bulat atau garis, 30–60 LPI, dengan sudut garis 15°–60°, supaya tercetak halus di kain.</p><div class="meta">Di browser · 1 kredit per unduhan</div></article>
-          <article class="card feat"><div class="ic">${icon('expand')}</div><h3>Upscale</h3><p>Perbesar gambar kecil 2×, 4×, 8×, atau 16× lewat BigJPG, lengkap dengan progres dan riwayat.</p><div class="meta">Lewat server BigJPG · 2–8 kredit</div></article>
+          <article class="card feat"><div class="ic">${icon('scan')}</div><h3>Knockout</h3><p>Hapus hitam, putih, atau warna pilihan jadi transparan. Ada pengambil warna, mode area, toleransi, dan pembanding sebelum/sesudah.</p><div class="meta">Di browser · 3 kredit per unduhan</div></article>
+          <article class="card feat"><div class="ic">${icon('halftone')}</div><h3>Raster Halftone</h3><p>Ubah gradasi jadi raster bulat atau garis, 30–60 LPI, dengan sudut garis 15°–60°, supaya tercetak halus di kain.</p><div class="meta">Di browser · 3 kredit per unduhan</div></article>
+          <article class="card feat"><div class="ic">${icon('expand')}</div><h3>Upscale</h3><p>Perbesar gambar kecil 2×, 4×, 8×, atau 16× lewat BigJPG, lengkap dengan progres dan riwayat.</p><div class="meta">Lewat server BigJPG · 1 kredit per gambar</div></article>
         </div>
       </div>
     </section>
@@ -50,7 +50,7 @@ export function renderLanding(view) {
     <section class="section alt" id="harga">
       <div class="wrap">
         <h2>Harga sederhana: bayar sesuai pemakaian</h2>
-        <p class="sub">Satu unduhan hasil Raster/Knockout memakai 1 kredit (sekitar Rp700–Rp850); upscale 2–8 kredit. Makin besar paket, makin banyak bonus kredit. Kredit tidak kedaluwarsa.</p>
+        <p class="sub">Unduh hasil Raster/Knockout = 3 kredit (sekitar Rp2.100–Rp2.500). Upscale = 1 kredit per gambar. Makin besar paket, makin banyak bonus kredit. Kredit tidak kedaluwarsa.</p>
         <div class="prices" id="prices">${pricing()}</div>
       </div>
     </section>

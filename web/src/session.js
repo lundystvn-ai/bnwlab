@@ -263,7 +263,7 @@ export function renderCreditChip() {
   const chip = $('creditChip');
   if (!chip) return;
   chip.hidden = !state.user;
-  chip.classList.toggle('low', !!state.user && state.credits <= 3 && state.credits > 0);
+  chip.classList.toggle('low', !!state.user && state.credits < 6 && state.credits > 0);
   chip.classList.toggle('empty', !!state.user && state.credits === 0);
   $('creditValue').textContent = String(state.credits);
 }
