@@ -185,13 +185,15 @@ export async function loadSettings() {
 
 export async function topupDialog(reason = '', opts = {}) {
   if (!state.user) { authDialog('daftar', '', () => topupDialog(reason, opts)); return; }
-  const mine = await db.from('payments').select('id,package_id,kredit,jumlah,status,claimed_at,created_at').eq('user_id', state.user.id).order('created_at', { ascending: false }).limit(5);
+  const mine = await db.from('payments').select('id,package_id,kredit,jumlah,status,claimed_at,created_at,provider,pay_method,va_bank,va_number,biller_code,expires_at').eq('user_id', state.user.id).order('created_at', { ascending: false }).limit(5);
   const waiting = (mine.data || []).filter((p) => p.status === 'pending' && p.claimed_at);
+  const openVa = (mine.data || []).filter((p) => p.status === 'pending' && p.pay_method === 'va' && p.va_number && new Date(p.expires_at) > new Date());
   openModal(`
     <h3>${L('Isi kredit', 'Top up credits')}</h3>
     ${reason ? `<p class="muted">${esc(reason)}</p>` : ''}
     <div class="wallet-now">${L(`Saldo sekarang <b class="mono">${state.credits}</b> kredit`, `Current balance <b class="mono">${state.credits}</b> credits`)}</div>
     ${waiting.length ? notice(L(`${waiting.length} pembayaran menunggu konfirmasi admin (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Kredit masuk otomatis setelah dicek.`, `${waiting.length} payment(s) waiting for admin confirmation (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Credits are added once checked.`), 'warn') : ''}
+    ${openVa.map((p) => `<div class="va-open"><span class="small">${L(`Transfer belum selesai: <b>${rupiah(p.jumlah)}</b> ke ${esc(bankName(p.va_bank))} VA`, `Unfinished transfer: <b>${rupiah(p.jumlah)}</b> to ${esc(bankName(p.va_bank))} VA`)}</span><button class="btn btn-secondary btn-sm" data-va="${esc(p.id)}">${L('Lihat nomor', 'Show number')}</button></div>`).join('')}
     <div class="pack-list" role="list">${state.packages.map((p) => `
       <button class="pack pack-btn${p.populer ? ' pop' : ''}" data-pack="${esc(p.id)}" role="listitem">
         <span><span class="pack-name">${esc(pkgName(p))}${p.populer ? ` <span class="badge b-accent">${L('Terlaris', 'Most popular')}</span>` : ''}</span>
@@ -201,6 +203,11 @@ export async function topupDialog(reason = '', opts = {}) {
     <p class="muted small">${L('Bayar dengan QRIS dari e-wallet atau m-banking apa pun. Kredit tidak hangus.', 'Pay with QRIS from any Indonesian e-wallet or mobile banking app. Credits never expire.')}</p>
     <div id="tpMsg"></div>`);
   document.querySelectorAll('[data-pack]').forEach((b) => (b.onclick = () => startTopup(b.dataset.pack, b, opts)));
+  document.querySelectorAll('[data-va]').forEach((b) => (b.onclick = () => {
+    const p = openVa.find((x) => x.id === b.dataset.va); if (!p) return;
+    const pk = state.packages.find((x) => x.id === p.package_id) || { nama: p.package_id };
+    showVa({ id: p.id, method: 'va', bank: p.va_bank, va_number: p.va_number, biller_code: p.biller_code, harga: p.jumlah, kredit: p.kredit, nama: pk.nama, expires_at: p.expires_at, sandbox: false });
+  }));
 }
 
 async function startTopup(packId, btn, opts = {}) {
@@ -255,47 +262,52 @@ async function startTopup(packId, btn, opts = {}) {
   };
 }
 
-// ---------- automatic QRIS through Midtrans: credits arrive by themselves after paying ----------
+// ---------- automatic payments through Midtrans: credits arrive by themselves after paying ----------
+const VA_MIN = 100000;   // bank transfer is offered for packs of Rp100.000 and up
+const BANKS = [['bca', 'BCA'], ['bni', 'BNI'], ['bri', 'BRI'], ['mandiri', 'Mandiri'], ['permata', 'Permata'], ['cimb', 'CIMB Niaga']];
+const bankName = (b) => (BANKS.find((x) => x[0] === b) || [b, String(b || '').toUpperCase()])[1];
+const fmtUntil = (d) => new Date(d).toLocaleString(L('id-ID', 'en-GB'), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
 async function midtransTopup(packId, btn) {
+  const pack = state.packages.find((x) => x.id === packId);
+  if (pack && pack.harga >= VA_MIN) { chooseMethod(pack); return; }
   btn.disabled = true;
-  let data;
-  try { data = await invoke('midtrans', { action: 'create', package: packId }); }
-  catch (e) { btn.disabled = false; $('tpMsg').innerHTML = notice(esc(tr(e.message)), 'error'); return; }
-  btn.disabled = false;
-  let svg = '', png = '';
-  try {
-    const QR = (await import('qrcode')).default;
-    svg = await QR.toString(data.qr_string, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#000000', light: '#ffffff' } });
-    png = await QR.toDataURL(data.qr_string, { errorCorrectionLevel: 'M', margin: 3, width: 720 });
-  } catch (e) { $('tpMsg').innerHTML = notice(L('QRIS tidak dapat ditampilkan: ', 'Could not show the QRIS code: ') + esc(e.message), 'error'); return; }
-  const { merchantName } = await import('./qris.js');
-  const ref = String(data.id).slice(0, 8).toUpperCase();
-  const until = new Date(data.expires_at);
-  const pack = state.packages.find((x) => x.id === packId) || { nama: data.nama };
+  try { await createMidtrans(packId, 'qris'); } finally { if (btn.isConnected) btn.disabled = false; }
+}
+
+function chooseMethod(pack) {
   openModal(`
-    <h3>${L('Bayar', 'Pay')} ${rupiah(data.harga)}</h3>
-    <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${data.kredit} ${L('kredit', 'credits')} · ${L('kode', 'code')} <span class="mono">${ref}</span></p>
-    ${data.sandbox ? notice(L('Mode uji coba: QRIS ini tidak bisa dibayar dengan uang sungguhan.', 'Test mode: this QRIS cannot be paid with real money.'), 'warn') : ''}
-    <div class="qris-box"><div class="qris">${svg}</div>
-      <div class="qris-meta"><b>${esc(merchantName(data.qr_string) || 'BNW Lab')}</b><span class="mono">${rupiah(data.harga)}</span></div></div>
-    <ol class="qris-steps small">
-      <li>${L('Buka GoPay, OVO, DANA, ShopeePay, atau m-banking, lalu scan QRIS ini. Di HP: simpan gambar QR, lalu pilih dari galeri di aplikasi pembayaran.', 'Open GoPay, OVO, DANA, ShopeePay or your banking app and scan this QRIS. On a phone: save the QR image, then pick it from your gallery in the payment app.')}</li>
-      <li>${L(`Nominal <b>${rupiah(data.harga)}</b> sudah terisi. Bayar.`, `The amount <b>${rupiah(data.harga)}</b> is filled in. Pay.`)}</li>
-      <li>${L('Selesai. Kredit masuk otomatis beberapa detik setelah pembayaran, tanpa perlu konfirmasi.', 'Done. Credits are added automatically a few seconds after you pay, no confirmation needed.')}</li>
-    </ol>
-    <div class="mt-live" id="tpLive" aria-live="polite"><span class="spin"></span><span id="tpLiveText">${L('Menunggu pembayaran…', 'Waiting for payment…')}</span></div>
+    <h3>${L('Pilih cara bayar', 'Choose how to pay')}</h3>
+    <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${pack.kredit} ${L('kredit', 'credits')} · <b>${rupiah(pack.harga)}</b></p>
+    <div class="pay-methods">
+      <button class="pack pack-btn" data-method="qris"><span><span class="pack-name">QRIS</span>
+        <span class="muted small">${L('GoPay, OVO, DANA, ShopeePay, atau m-banking · kredit masuk dalam hitungan detik', 'GoPay, OVO, DANA, ShopeePay or mobile banking · credits arrive within seconds')}</span></span><b class="pack-price">${L('Pilih', 'Choose')}</b></button>
+      <div class="pay-va"><span class="pack-name">${L('Transfer bank (Virtual Account)', 'Bank transfer (Virtual Account)')}</span>
+        <span class="muted small">${L('Dari m-banking, internet banking, atau ATM · berlaku 24 jam', 'From mobile banking, internet banking or an ATM · valid for 24 hours')}</span>
+        <div class="bank-grid">${BANKS.map(([id, name]) => `<button class="btn btn-secondary" data-bank="${id}">${name}</button>`).join('')}</div></div>
+    </div>
     <div id="tpMsg"></div>
-    <div class="modal-actions"><button class="btn btn-quiet" id="tpCancel">${L('Batal', 'Cancel')}</button><a class="btn btn-secondary" id="tpSave" href="${png}" download="qris-bnwlab-${ref}.png">${L('Simpan gambar QR', 'Save QR image')}</a></div>`);
+    <div class="modal-actions"><button class="btn btn-quiet" id="tpBack">${L('Kembali', 'Back')}</button></div>`);
+  $('tpBack').onclick = () => topupDialog();
+  const lock = (on) => document.querySelectorAll('[data-method],[data-bank]').forEach((b) => (b.disabled = on));
+  document.querySelector('[data-method=qris]').onclick = async () => { lock(true); await createMidtrans(pack.id, 'qris'); lock(false); };
+  document.querySelectorAll('[data-bank]').forEach((b) => (b.onclick = async () => { lock(true); await createMidtrans(pack.id, 'va', b.dataset.bank); lock(false); }));
+}
+
+async function createMidtrans(packId, method, bank) {
+  let data;
+  try { data = await invoke('midtrans', { action: 'create', package: packId, method, bank }); }
+  catch (e) { const m = $('tpMsg'); if (m) m.innerHTML = notice(esc(tr(e.message)), 'error'); return; }
+  if (data.method === 'va') showVa(data); else await showQr(data);
+}
+
+// Poll the payment until it is paid or expired; stops by itself when the dialog closes.
+function watchPayment(data, liveText) {
+  const until = new Date(data.expires_at);
   let stopped = false, busy = false;
-  const left = () => {
-    const ms = until - Date.now();
-    if (ms <= 0) return L('kedaluwarsa', 'expired');
-    const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000);
-    return `${m}:${String(s).padStart(2, '0')}`;
-  };
-  const tick = () => { const t = $('tpLiveText'); if (t && !stopped) t.textContent = L(`Menunggu pembayaran… berlaku ${left()}`, `Waiting for payment… valid for ${left()}`); };
+  const stop = () => { stopped = true; clearInterval(timer); clearInterval(clock); };
   const done = async (paid) => {
-    stopped = true; clearInterval(timer); clearInterval(clock);
+    stop();
     if (paid) {
       await refreshCredits();
       openModal(`
@@ -303,24 +315,85 @@ async function midtransTopup(packId, btn) {
         ${notice(L(`<b>${data.kredit} kredit</b> sudah masuk. Saldo sekarang <b>${state.credits}</b> kredit.`, `<b>${data.kredit} credits</b> have been added. Your balance is now <b>${state.credits}</b> credits.`), 'ok')}
         <div class="modal-actions"><button class="btn btn-primary" data-close>${L('Selesai', 'Done')}</button></div>`);
     } else {
-      const live = $('tpLive'); if (live) live.innerHTML = notice(L('QRIS ini sudah kedaluwarsa. Buat QRIS baru untuk membayar.', 'This QRIS has expired. Make a new one to pay.'), 'warn');
-      const save = $('tpSave'); if (save) { save.outerHTML = `<button class="btn btn-primary" id="tpAgain">${L('Buat QRIS baru', 'Make a new QRIS')}</button>`; $('tpAgain').onclick = () => topupDialog(); }
+      const live = $('tpLive'); if (live) live.innerHTML = notice(L('Batas waktu pembayaran ini sudah lewat. Buat pembayaran baru.', 'This payment has expired. Start a new one.'), 'warn');
+      const alt = $('tpAlt'); if (alt) { alt.outerHTML = `<button class="btn btn-primary" id="tpAgain">${L('Bayar lagi', 'Pay again')}</button>`; $('tpAgain').onclick = () => topupDialog(); }
     }
   };
+  const tick = () => { const t = $('tpLiveText'); if (t && !stopped) t.textContent = liveText(until); };
   const check = async () => {
     if (stopped || busy) return;
-    if (!$('tpLive')) { stopped = true; clearInterval(timer); clearInterval(clock); return; }   // dialog closed
+    if (!$('tpLive')) { stop(); return; }   // dialog closed: the server still adds the credits when paid
     busy = true;
     try {
       const r = await invoke('midtrans', { action: 'status', id: data.id });
       if (r.status === 'paid') await done(true);
-      else if (r.status === 'expired' || (Date.now() > until.getTime() + 60000 && r.status !== 'pending')) await done(false);
-      else if (Date.now() > until.getTime() + 120000) await done(false);
+      else if (r.status === 'expired' || Date.now() > until.getTime() + 120000) await done(false);
     } catch { /* try again on the next tick */ } finally { busy = false; }
   };
-  const timer = setInterval(check, 4000);
+  const timer = setInterval(check, data.method === 'va' ? 6000 : 4000);
   const clock = setInterval(tick, 1000); tick();
-  $('tpCancel').onclick = async () => { stopped = true; clearInterval(timer); clearInterval(clock); await db.rpc('cancel_topup', { p_id: data.id }); closeModal(); };
+  return stop;
+}
+
+async function showQr(data) {
+  let svg = '', png = '';
+  try {
+    const QR = (await import('qrcode')).default;
+    svg = await QR.toString(data.qr_string, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#000000', light: '#ffffff' } });
+    png = await QR.toDataURL(data.qr_string, { errorCorrectionLevel: 'M', margin: 3, width: 720 });
+  } catch (e) { const m = $('tpMsg'); if (m) m.innerHTML = notice(L('QRIS tidak dapat ditampilkan: ', 'Could not show the QRIS code: ') + esc(e.message), 'error'); return; }
+  const { merchantName } = await import('./qris.js');
+  const ref = String(data.id).slice(0, 8).toUpperCase();
+  const pack = state.packages.find((x) => x.nama === data.nama) || { nama: data.nama };
+  openModal(`
+    <h3>${L('Bayar', 'Pay')} ${rupiah(data.harga)}</h3>
+    <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${data.kredit} ${L('kredit', 'credits')} · ${L('kode', 'code')} <span class="mono">${ref}</span></p>
+    ${data.sandbox ? notice(L('Mode uji coba: tidak bisa dibayar dengan uang sungguhan.', 'Test mode: cannot be paid with real money.'), 'warn') : ''}
+    <div class="qris-box"><div class="qris">${svg}</div>
+      <div class="qris-meta"><b>${esc(merchantName(data.qr_string) || 'BNW Lab')}</b><span class="mono">${rupiah(data.harga)}</span></div></div>
+    <ol class="qris-steps small">
+      <li>${L('Buka GoPay, OVO, DANA, ShopeePay, atau m-banking, lalu scan QRIS ini. Di HP: simpan gambar QR, lalu pilih dari galeri di aplikasi pembayaran.', 'Open GoPay, OVO, DANA, ShopeePay or your banking app and scan this QRIS. On a phone: save the QR image, then pick it from your gallery in the payment app.')}</li>
+      <li>${L(`Nominal <b>${rupiah(data.harga)}</b> sudah terisi. Bayar.`, `The amount <b>${rupiah(data.harga)}</b> is filled in. Pay.`)}</li>
+      <li>${L('Selesai. Kredit masuk otomatis beberapa detik setelah pembayaran, tanpa perlu konfirmasi.', 'Done. Credits are added automatically a few seconds after you pay, no confirmation needed.')}</li>
+    </ol>
+    <div class="mt-live" id="tpLive" aria-live="polite"><span class="spin"></span><span id="tpLiveText"></span></div>
+    <div id="tpMsg"></div>
+    <div class="modal-actions"><button class="btn btn-quiet" id="tpCancel">${L('Batal', 'Cancel')}</button><a class="btn btn-secondary" id="tpAlt" href="${png}" download="qris-bnwlab-${ref}.png">${L('Simpan gambar QR', 'Save QR image')}</a></div>`);
+  const left = (until) => {
+    const ms = until - Date.now(); if (ms <= 0) return L('kedaluwarsa', 'expired');
+    return `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+  };
+  const stop = watchPayment(data, (until) => L(`Menunggu pembayaran… berlaku ${left(until)}`, `Waiting for payment… valid for ${left(until)}`));
+  $('tpCancel').onclick = async () => { stop(); await db.rpc('cancel_topup', { p_id: data.id }); closeModal(); };
+}
+
+function showVa(data) {
+  const ref = String(data.id).slice(0, 8).toUpperCase();
+  const mandiri = data.bank === 'mandiri';
+  const pack = state.packages.find((x) => x.nama === data.nama) || { nama: data.nama };
+  const group = (n) => String(n).replace(/(\d{4})(?=\d)/g, '$1 ');
+  openModal(`
+    <h3>${L('Transfer', 'Transfer')} ${rupiah(data.harga)}</h3>
+    <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${data.kredit} ${L('kredit', 'credits')} · ${L('kode', 'code')} <span class="mono">${ref}</span></p>
+    ${data.sandbox ? notice(L('Mode uji coba: tidak bisa dibayar dengan uang sungguhan.', 'Test mode: cannot be paid with real money.'), 'warn') : ''}
+    <div class="va-box">
+      <span class="muted small">${mandiri ? 'Mandiri Bill Payment' : `${esc(bankName(data.bank))} Virtual Account`}</span>
+      ${mandiri ? `<div class="row"><span class="small muted" style="width:120px">${L('Kode perusahaan', 'Company code')}</span><b class="mono">${esc(data.biller_code)}</b></div>` : ''}
+      <div class="row"><span class="va-num mono" id="vaNum">${esc(group(data.va_number))}</span><button class="btn btn-secondary btn-sm" id="vaCopy">${L('Salin', 'Copy')}</button></div>
+      <div class="row"><span class="small muted">${L('Jumlah transfer', 'Amount')}</span><span class="grow"></span><b class="mono">${rupiah(data.harga)}</b></div>
+    </div>
+    <ol class="qris-steps small">
+      ${mandiri
+        ? `<li>${L(`Buka Livin' by Mandiri atau ATM Mandiri, pilih <b>Bayar → Multipayment</b>, lalu cari kode perusahaan <b>${esc(data.biller_code)}</b> (Midtrans).`, `Open Livin' by Mandiri or a Mandiri ATM, choose <b>Pay → Multipayment</b>, then search company code <b>${esc(data.biller_code)}</b> (Midtrans).`)}</li><li>${L('Masukkan kode bayar di atas, cek nominal, lalu bayar.', 'Enter the payment code above, check the amount, then pay.')}</li>`
+        : `<li>${L(`Buka m-banking, internet banking, atau ATM, pilih <b>Transfer → Virtual Account ${esc(bankName(data.bank))}</b>. Dari bank lain, pilih transfer antarbank ke ${esc(bankName(data.bank))} dengan nomor ini.`, `Open your mobile banking, internet banking or an ATM and choose <b>Transfer → ${esc(bankName(data.bank))} Virtual Account</b>. From another bank, use an interbank transfer to ${esc(bankName(data.bank))} with this number.`)}</li><li>${L(`Masukkan nomor di atas. Nominal <b>${rupiah(data.harga)}</b> akan muncul; pastikan sama, lalu bayar.`, `Enter the number above. The amount <b>${rupiah(data.harga)}</b> will show; check it matches, then pay.`)}</li>`}
+      <li>${L('Kredit masuk otomatis setelah transfer diterima. Halaman ini boleh ditutup.', 'Credits are added automatically once the transfer arrives. You may close this page.')}</li>
+    </ol>
+    <div class="mt-live" id="tpLive" aria-live="polite"><span class="spin"></span><span id="tpLiveText"></span></div>
+    <div id="tpMsg"></div>
+    <div class="modal-actions"><button class="btn btn-quiet" id="tpCancel">${L('Batalkan', 'Cancel payment')}</button><button class="btn btn-primary" id="tpAlt" data-close>${L('Tutup, saya transfer nanti', 'Close, I will pay later')}</button></div>`);
+  $('vaCopy').onclick = async () => { try { await navigator.clipboard.writeText(String(data.va_number)); $('vaCopy').textContent = L('Tersalin', 'Copied'); } catch { /* ignore */ } };
+  const stop = watchPayment(data, (until) => L(`Menunggu transfer… berlaku sampai ${fmtUntil(until)}`, `Waiting for the transfer… valid until ${fmtUntil(until)}`));
+  $('tpCancel').onclick = async () => { stop(); await db.rpc('cancel_topup', { p_id: data.id }); closeModal(); };
 }
 
 export function renderCreditChip() {
