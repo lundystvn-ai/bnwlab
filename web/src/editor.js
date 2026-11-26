@@ -4,6 +4,7 @@ import * as E from './engine.js';
 import { db } from './supa.js';
 import { $, esc, icon, notice, toast, uuid, fmtDate, num } from './util.js';
 import { L as T, tr, lang } from './i18n.js';
+import { store } from './config.js';
 import { state, setCredits, topupDialog, authDialog, clearSession, isAdmin, isManager, regionId, regionTz } from './session.js';
 
 // Downloaded PNGs open at 300 DPI in RIP software.
@@ -64,7 +65,9 @@ export function mount(host) {
         <details class="sec" open><summary>${icon('chev', 'i i-sm chev')}${T('Raster halftone', 'Halftone raster')}</summary>
           <div class="sec-body">
             <div class="row"><span class="lbl">${T('Pratinjau', 'Preview')}</span><div class="seg" role="radiogroup" aria-label="${T('Pratinjau di kaos hitam atau putih', 'Preview on a black or white shirt')}" id="garment"><button role="radio" aria-checked="false" data-v="black">${T('Hitam', 'Black')}</button><button role="radio" aria-checked="true" data-v="white">${T('Putih', 'White')}</button></div></div>
-            <p class="hint">${T('Lihat hasil di kaos hitam atau putih. Raster garis menyesuaikan pilihan ini.', 'See the result on a black or white shirt. Line raster follows this choice.')}</p>
+            <p class="hint">${T('Lihat hasil di kaos hitam atau putih. Ukuran titik dan garis menyesuaikan pilihan ini.', 'See the result on a black or white shirt. Dot and line sizes follow this choice.')}</p>
+            <div class="row"><span class="lbl">${T('Titik bulat', 'Round dots')}</span><div class="seg" role="radiogroup" aria-label="${T('Bentuk raster bulat', 'Round raster style')}" id="dots"><button role="radio" aria-checked="true" data-v="keep">${T('Titik tetap', 'Keep dots')}</button><button role="radio" aria-checked="false" data-v="holes">${T('Jadi lubang', 'Dots as holes')}</button></div></div>
+            <p class="hint" id="dotsHint"></p>
             <div class="row"><span class="lbl">${T('Detail raster', 'Raster detail')}</span><input type="range" id="lpi" min="30" max="60" step="1" value="45" aria-label="${T('Detail raster dalam LPI', 'Raster detail in LPI')}"><span class="val" id="lpiVal" style="width:44px;text-align:right">45 LPI</span></div>
             <p class="hint"><span id="lpiPx">±7 px</span> ${T('pada artwork 300 DPI. 30 = titik besar, 60 = halus.', 'on 300 DPI artwork. 30 = large dots, 60 = fine.')}</p>
             <div class="row"><span class="lbl">${T('Sudut garis', 'Line angle')}</span><select class="sel" id="angle" aria-label="${T('Sudut raster garis', 'Line raster angle')}"><option value="15">15°</option><option value="22.5">22,5°</option><option value="45" selected>45°</option><option value="60">60°</option></select></div>
@@ -108,7 +111,7 @@ export function mount(host) {
   // ---------- state ----------
   const S = {
     name: 'image', fileName: 'image', k: null, w: null, B: null, s: 'original', m: 'none', ko: 'none',
-    L: E.createColorKnockoutState(), undo: null, garment: 'white', bg: 'checker',
+    L: E.createColorKnockoutState(), undo: null, garment: 'white', bg: 'checker', dots: store.get('raster_dots', 'keep') === 'holes' ? 'holes' : 'keep',
     z: 1, fit: 1, px: 0, py: 0, split: 50, compare: true, busy: false, job: null, blobUrl: '', blobFor: null,
   };
   const els = {
@@ -220,6 +223,7 @@ export function mount(host) {
     const has = !!S.k, busy = S.busy;
     [els.rRound, els.rLine, els.lpi, els.angle].forEach((x) => (x.disabled = !has || busy));
     $('garment').querySelectorAll('button').forEach((b) => (b.disabled = !has || busy));
+    $('dots').querySelectorAll('button').forEach((b) => (b.disabled = busy));
     $('ko').querySelectorAll('button').forEach((b) => (b.disabled = !has || busy));
     els.undo.disabled = !has || busy || !S.undo;
     els.reset.disabled = !has || busy;
@@ -322,7 +326,7 @@ export function mount(host) {
     const lpi = E.clampLpi(els.lpi.value), angle = E.normalizeLineAngle(els.angle.value);
     const label = kind === 'round' ? T('Raster bulat', 'Round raster') : T(`Raster garis ${String(angle).replace('.', ',')}°`, `Line raster ${angle}°`);
     setBusy(true, `Membuat ${label} ${lpi} LPI…`, 0);
-    S.job = E.raster(S.k, { kind, lpi, angle, blackGarment: S.garment === 'black', onProgress: (p) => { els.busyBar.style.width = Math.round(p * 100) + '%'; els.busyText.textContent = `Membuat ${label} ${lpi} LPI… ${Math.round(p * 100)}%`; } });
+    S.job = E.raster(S.k, { kind, lpi, angle, dots: S.dots, blackGarment: S.garment === 'black', onProgress: (p) => { els.busyBar.style.width = Math.round(p * 100) + '%'; els.busyText.textContent = `Membuat ${label} ${lpi} LPI… ${Math.round(p * 100)}%`; } });
     try {
       const out = await S.job.promise;
       Object.assign(S, { B: out, w: out, s: kind === 'round' ? 'raster_round' : 'raster_line', m: kind === 'round' ? 'raster_round' : 'raster_line', ko: 'none' });
@@ -336,6 +340,18 @@ export function mount(host) {
   els.rRound.onclick = () => runRaster('round');
   els.rLine.onclick = () => runRaster('line');
   els.lpi.oninput = lpiLabel;
+  const dotsHint = () => {
+    radio($('dots'), S.dots);
+    $('dotsHint').textContent = S.dots === 'keep'
+      ? T('Desain tetap ada di dalam titik; ruang di antara titik jadi transparan. Area penuh tetap penuh.', 'The design stays inside the dots; the space between them becomes transparent. Solid areas stay solid.')
+      : T('Gaya klasik: titik hitam ditambahkan, lalu Knockout Hitam mengubah titik itu menjadi lubang.', 'Classic style: black dots are added, then Knockout Black turns them into holes.');
+  };
+  dotsHint();
+  $('dots').addEventListener('click', (e) => {
+    const b = e.target.closest('[role=radio]'); if (!b || b.disabled) return;
+    S.dots = b.dataset.v === 'holes' ? 'holes' : 'keep'; store.set('raster_dots', S.dots); dotsHint();
+    if (S.m === 'raster_round') runRaster('round');
+  });
   $('garment').addEventListener('click', (e) => {
     const b = e.target.closest('[role=radio]'); if (!b || b.disabled) return;
     S.garment = b.dataset.v; radio($('garment'), S.garment);

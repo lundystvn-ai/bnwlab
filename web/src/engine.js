@@ -155,14 +155,19 @@ export function knockoutColor(src, opts) {
 // Round: black dots sized by darkness × opacity, masked by the source alpha, drawn over the
 // source. (Knockout Black afterwards turns those dots into holes: the classic DTF raster.)
 // Line: lines at an angle whose thickness follows darkness (or lightness on a black shirt).
-export function raster(src, { kind, lpi, angle, blackGarment, onProgress }) {
+// Round with dots: 'keep': the design stays only INSIDE the dots (dot size follows darkness, or lightness
+// on a black shirt); everything between the dots becomes transparent, so solid areas stay solid.
+export function raster(src, { kind, lpi, angle, blackGarment, onProgress, dots = 'holes' }) {
   let cancelled = false;
   const o = src.width, S = src.height, b = src.data;
   const C = cellForLpi(lpi);
   const le = normalizeLineAngle(angle);
   const promise = new Promise((resolve, reject) => {
     let dotCanvas, dotCtx, srcCanvas, out;
-    if (kind === 'round') {
+    const keep = kind === 'round' && dots === 'keep';
+    if (keep) {
+      out = new ImageData(o, S);
+    } else if (kind === 'round') {
       dotCanvas = document.createElement('canvas'); srcCanvas = document.createElement('canvas');
       dotCanvas.width = srcCanvas.width = o; dotCanvas.height = srcCanvas.height = S;
       dotCtx = dotCanvas.getContext('2d'); srcCanvas.getContext('2d').putImageData(src, 0, 0);
@@ -179,7 +184,31 @@ export function raster(src, { kind, lpi, angle, blackGarment, onProgress }) {
           ? Math.max(C, Math.max(1, Math.floor(18e4 / Math.max(1, o * C))) * C)
           : Math.max(8, Math.floor(26e4 / Math.max(1, o)));
         const end = Math.min(S, row + chunk);
-        if (kind === 'round') {
+        if (keep) {
+          const half = 0.70711 * C;
+          for (let cy0 = row; cy0 < end; cy0 += C) {
+            const cy1 = Math.min(S, cy0 + C);
+            for (let cx0 = 0; cx0 < o; cx0 += C) {
+              const cx1 = Math.min(o, cx0 + C);
+              let wSum = 0, iSum = 0;
+              for (let y = cy0; y < cy1; y++) for (let x = cx0; x < cx1; x++) {
+                const p = (y * o + x) * 4, wt = b[p + 3] / 255;
+                const lum = (0.299 * b[p] + 0.587 * b[p + 1] + 0.114 * b[p + 2]) / 255;
+                wSum += wt; iSum += (blackGarment ? lum : 1 - lum) * wt;
+              }
+              const inten = wSum ? Math.max(0, Math.min(1, iSum / wSum)) : 0;
+              const solid = inten >= 0.97;
+              const r = Math.sqrt(inten) * half;
+              const mx = (cx0 + cx1) / 2, my = (cy0 + cy1) / 2;
+              for (let y = cy0; y < cy1; y++) for (let x = cx0; x < cx1; x++) {
+                const p = (y * o + x) * 4;
+                const dx = x + 0.5 - mx, dy = y + 0.5 - my;
+                const cov = solid ? 1 : Math.max(0, Math.min(1, r + 0.5 - Math.sqrt(dx * dx + dy * dy)));
+                te[p] = b[p]; te[p + 1] = b[p + 1]; te[p + 2] = b[p + 2]; te[p + 3] = Math.round(b[p + 3] * cov);
+              }
+            }
+          }
+        } else if (kind === 'round') {
           const path = new Path2D();
           for (let ie = row; ie < end; ie += C) {
             const ye = Math.min(S, ie + C);
@@ -217,7 +246,7 @@ export function raster(src, { kind, lpi, angle, blackGarment, onProgress }) {
         row = end;
         onProgress?.(row / S);
         if (row < S) { requestAnimationFrame(step); return; }
-        if (kind === 'round') {
+        if (kind === 'round' && !keep) {
           dotCtx.globalCompositeOperation = 'destination-in';
           dotCtx.drawImage(srcCanvas, 0, 0);
           dotCtx.globalCompositeOperation = 'source-over';
