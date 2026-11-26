@@ -16,7 +16,7 @@ export function renderLanding(view) {
         <h1>${L('File DTF siap cetak, tanpa ribet.', 'Print-ready DTF files, without the hassle.')}</h1>
         <p class="lead">${L('Knockout latar, raster halftone, dan upscale dalam satu editor. Knockout dan raster diproses langsung di browser, jadi gambar tidak diunggah.', 'Background knockout, halftone raster and upscaling in one editor. Knockout and raster run right in your browser, so your images are never uploaded.')}</p>
         <div class="cta">
-          <button class="btn btn-primary btn-xl" data-cta>${L('Buka editor', 'Open the editor')}</button>
+          <button class="btn btn-primary btn-xl" data-cta>${L('Buka Halftone', 'Open Halftone')}</button>
           <a class="btn btn-secondary btn-xl" href="#cek" data-route="cek">${icon('check', 'i i-sm')}${L('Cek file DTF gratis', 'Check a DTF file free')}</a>
         </div>
         <p class="fine small muted">${L('Daftar dan langsung dapat <b>5 kredit gratis</b> untuk mencoba. Pratinjau gratis, unduhan memakai kredit.', 'Sign up and get <b>5 free credits</b> to try it. Previews are free; downloads use credits.')}</p>

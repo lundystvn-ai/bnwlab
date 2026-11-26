@@ -63,7 +63,7 @@ export function mount(host) {
         <div id="chkActions" hidden class="stack">
           <button class="btn btn-secondary btn-block" id="chkFixAll">${icon('check', 'i i-sm')}${L('Perbaiki semua', 'Fix all')}</button>
           <button class="btn btn-primary btn-lg btn-block" id="chkDl">${icon('download', 'i i-sm')}${L('Unduh PNG siap cetak', 'Download print-ready PNG')} <span class="cost">· ${L('1 kredit', '1 credit')}</span></button>
-          <button class="btn btn-quiet btn-block" id="chkEditor">${icon('halftone', 'i i-sm')}${L('Lanjut raster / knockout di Editor', 'Continue to raster / knockout in the Editor')}</button>
+          <button class="btn btn-quiet btn-block" id="chkEditor">${icon('halftone', 'i i-sm')}${L('Lanjut ke Halftone (raster / knockout)', 'Continue to Halftone (raster / knockout)')}</button>
         </div>
       </section>
     </div>
