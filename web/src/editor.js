@@ -54,7 +54,8 @@ export function mount(host) {
         </details>
         <details class="sec" open><summary>${icon('chev', 'i i-sm chev')}Raster halftone</summary>
           <div class="sec-body">
-            <div class="row"><span class="lbl">Warna kaos</span><div class="seg" role="radiogroup" aria-label="Warna kaos" id="garment"><button role="radio" aria-checked="true" data-v="white">Putih</button><button role="radio" aria-checked="false" data-v="black">Hitam</button></div></div>
+            <div class="row"><span class="lbl">Pratinjau</span><div class="seg" role="radiogroup" aria-label="Pratinjau di kaos hitam atau putih" id="garment"><button role="radio" aria-checked="false" data-v="black">Hitam</button><button role="radio" aria-checked="true" data-v="white">Putih</button></div></div>
+            <p class="hint">Lihat hasil di kaos hitam atau putih. Raster garis menyesuaikan pilihan ini.</p>
             <div class="row"><span class="lbl">Detail raster</span><input type="range" id="lpi" min="30" max="60" step="1" value="45" aria-label="Detail raster dalam LPI"><span class="val" id="lpiVal" style="width:44px;text-align:right">45 LPI</span></div>
             <p class="hint"><span id="lpiPx">±7 px</span> pada artwork 300 DPI. 30 = titik besar, 60 = halus.</p>
             <div class="row"><span class="lbl">Sudut garis</span><select class="sel" id="angle" aria-label="Sudut raster garis"><option value="15">15°</option><option value="22.5">22,5°</option><option value="45" selected>45°</option><option value="60">60°</option></select></div>

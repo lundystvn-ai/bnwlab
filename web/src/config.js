@@ -12,9 +12,9 @@ const defaults = {
   supabaseAnonKey: 'sb_publishable_vNppxiR4bcWIzIJhUWqN2w_1rScY6ex',
   freeCredits: 3,
   packages: [
-    { id: 'starter', nama: 'Starter', kredit: 20, harga: 25000, catatan: 'Coba dulu untuk pesanan kecil' },
-    { id: 'pro', nama: 'Pro', kredit: 100, harga: 99000, catatan: 'Paling hemat untuk produksi rutin', populer: true },
-    { id: 'studio', nama: 'Studio', kredit: 400, harga: 299000, catatan: 'Untuk studio / banyak desain' },
+    { id: 'starter', nama: 'Starter', kredit: 25, harga: 25000, catatan: 'Coba dulu untuk pesanan kecil' },
+    { id: 'pro', nama: 'Pro', kredit: 100, harga: 100000, catatan: 'Pas untuk produksi rutin', populer: true },
+    { id: 'studio', nama: 'Studio', kredit: 300, harga: 300000, catatan: 'Untuk studio / banyak desain' },
   ],
   kontakWhatsApp: '',
   kontakEmail: '',
