@@ -11,7 +11,7 @@ import { L, tr } from './i18n.js';
 import { state, authDialog, topupDialog, setCredits, refreshCredits, regionId } from './session.js';
 
 // Kept outside the page so the work survives signing in or switching pages.
-const C = { bgMode: '', file: null, name: 'image', img: null, orig: null, undo: null, result: null, upscaled: false, busy: '', job: 0, msg: null };
+const C = { pipe: false, tol: 24, bgMode: '', file: null, name: 'image', img: null, orig: null, undo: null, result: null, upscaled: false, busy: '', job: 0, msg: null };
 
 const toImageData = (image) => {
   const r = E.prepareUpload(image, 'image');
@@ -60,6 +60,11 @@ export function mount(host) {
         <p class="hint" style="margin:0">${L('Isi lebar desain saat dicetak di kaos. Resolusi, ketebalan garis, dan ukuran file unduhan mengikuti angka ini.', 'Enter how wide the design will print on the shirt. Resolution, line thickness and the downloaded file size follow this number.')}</p>
         <div id="chkMsg"></div>
         <div id="chkList" class="ck-list" aria-live="polite"><p class="hint">${L('Hasil cek muncul di sini setelah gambar dipilih.', 'Results appear here once you choose an image.')}</p></div>
+        <div id="chkPipeBox" hidden class="ck-pipe">
+          <div class="row"><button class="btn btn-secondary btn-sm" id="chkPipe" aria-pressed="false">${icon('pipette', 'i i-sm')}<span id="chkPipeText">${L('Pipet hapus warna', 'Eyedropper remove')}</span></button></div>
+          <div class="row"><span class="lbl">${L('Toleransi', 'Tolerance')}</span><input type="range" id="chkTol" min="0" max="100" value="24" aria-label="${L('Toleransi warna', 'Colour tolerance')}"><span class="val" id="chkTolVal" style="width:24px;text-align:right">24</span></div>
+          <p class="hint" style="margin:0">${L('Klik Pipet, lalu klik warna yang ingin dibuang di gambar. Hanya area warna itu yang tersambung dengan titik klik yang dihapus, jadi warna sama di bagian lain desain tetap aman.', 'Press the eyedropper, then click the colour to remove on the image. Only the area of that colour connected to where you click is removed, so the same colour elsewhere in the design stays.')}</p>
+        </div>
         <div id="chkActions" hidden class="stack">
           <button class="btn btn-secondary btn-block" id="chkFixAll">${icon('check', 'i i-sm')}${L('Perbaiki semua', 'Fix all')}</button>
           <button class="btn btn-primary btn-lg btn-block" id="chkDl">${icon('download', 'i i-sm')}${L('Unduh PNG siap cetak', 'Download print-ready PNG')} <span class="cost">· ${L('1 kredit', '1 credit')}</span></button>
@@ -81,13 +86,13 @@ export function mount(host) {
   // ---------- view ----------
   function draw() {
     const c = $('chkCanvas'); if (!c || !C.img) return;
-    c.width = C.img.width; c.height = C.img.height; c.style.cursor = C.bgMode && !thinOn ? 'crosshair' : '';
+    c.width = C.img.width; c.height = C.img.height; c.style.cursor = (C.pipe || C.bgMode) && !thinOn ? 'crosshair' : '';
     c.getContext('2d').putImageData(thinOn && C.result ? thinOverlay(C.img, C.result.masks) : C.img, 0, 0);
   }
   function busyUi() {
     const b = $('chkBusy'); if (!b) return;
     b.hidden = !C.busy; $('chkBusyText').textContent = C.busy || '';
-    ['chkFixAll', 'chkDl', 'chkEditor', 'chkOther', 'chkWidth'].forEach((id) => { const el = $(id); if (el) el.disabled = !!C.busy; });
+    ['chkFixAll', 'chkDl', 'chkEditor', 'chkOther', 'chkWidth', 'chkPipe', 'chkTol'].forEach((id) => { const el = $(id); if (el) el.disabled = !!C.busy; });
     $('chkUndo').disabled = !!C.busy || !C.undo;
     $('chkOrig').disabled = !!C.busy || C.img === C.orig;
     document.querySelectorAll('#chkList [data-fix]').forEach((el) => (el.disabled = !!C.busy));
@@ -95,14 +100,15 @@ export function mount(host) {
   function fixLabel(it) {
     if (it.id === 'dpi') return `Upscale ${upScale()}× · ${L('1 kredit', '1 credit')}`;
     return ({
-      background: it.data.bg ? L(`Buang latar ${it.data.bg === 'white' ? 'putih' : 'hitam'}`, `Remove ${it.data.bg} background`) : '',
+      background: it.data.bg ? L(`Buang latar ${it.data.bg === 'white' ? 'putih' : 'hitam'}`, `Remove ${it.data.bg} background`) : L('Pakai pipet', 'Use eyedropper'),
       haze: L('Tegaskan', 'Harden'), fringe: L('Bersihkan tepi', 'Clean edges'), specks: L('Hapus bintik', 'Remove specks'),
       thin: thinOn ? L('Sembunyikan', 'Hide') : L('Tandai', 'Show'),
     })[it.id] || '';
   }
   function render() {
     const list = $('chkList'); if (!list || !C.img) return;
-    $('chkDrop').hidden = true; $('chkCanvasBox').hidden = false; $('chkMeta').hidden = false; $('chkActions').hidden = false;
+    $('chkDrop').hidden = true; $('chkCanvasBox').hidden = false; $('chkMeta').hidden = false; $('chkActions').hidden = false; $('chkPipeBox').hidden = false;
+    pipeUi();
     $('chkName').textContent = `${C.name} · ${num(C.img.width)} × ${num(C.img.height)} px${C.upscaled ? ' · upscale' : ''}`;
     if (C.msg) $('chkMsg').innerHTML = notice(C.msg[0], C.msg[1]);
     if (!C.result) { busyUi(); return; }
@@ -134,7 +140,7 @@ export function mount(host) {
     if (!/^image\/(png|jpeg|webp)$/i.test(f.type)) { say(L('Format harus PNG, JPG, atau WebP.', 'The format must be PNG, JPG or WebP.'), 'error'); return; }
     try {
       const img = toImageData(await blobToImage(f));
-      Object.assign(C, { file: f, name: (f.name || 'image').replace(/\.[^.]+$/, '') || 'image', img, orig: img, undo: null, result: null, upscaled: false, bgMode: '' });
+      Object.assign(C, { file: f, name: (f.name || 'image').replace(/\.[^.]+$/, '') || 'image', img, orig: img, undo: null, result: null, upscaled: false, bgMode: '', pipe: false });
       say(''); draw(); render(); check();
     } catch (e) { say(esc(e.message), 'error'); }
   }
@@ -145,12 +151,39 @@ export function mount(host) {
     const kept = short ? '' : L(`Latar ${colorName(bg)} dibuang; ${colorName(bg)} di dalam desain tetap aman. `, `The ${bg} background was removed; ${bg} inside the design is kept. `);
     return kept + (pockets ? L(`Masih ada ${pockets} area ${colorName(bg)} tertutup (misalnya lubang di huruf O atau A). Klik area itu di gambar kalau ingin dibuang juga.`, `${pockets} enclosed ${bg} area${pockets > 1 ? 's are' : ' is'} left (for example the hole in an O or A). Click it on the image if it should go too.`) : '');
   }
-  // Click an enclosed pocket of the background colour to remove it.
+  // ---------- eyedropper ----------
+  function pipeUi() {
+    const b = $('chkPipe'); if (!b) return;
+    b.setAttribute('aria-pressed', String(C.pipe)); b.classList.toggle('btn-primary', C.pipe); b.classList.toggle('btn-secondary', !C.pipe);
+    $('chkPipeText').textContent = C.pipe ? L('Pipet aktif · klik gambar', 'Eyedropper on · click the image') : L('Pipet hapus warna', 'Eyedropper remove');
+    $('chkTol').value = String(C.tol); $('chkTolVal').textContent = String(C.tol);
+    const c = $('chkCanvas'); if (c) c.style.cursor = (C.pipe || C.bgMode) && !thinOn ? 'crosshair' : '';
+  }
+  function setPipe(on) {
+    C.pipe = on;
+    if (on && thinOn) { thinOn = false; draw(); render(); }
+    pipeUi();
+    if (on) say(L('Pipet aktif. Klik warna latar yang ingin dibuang di gambar. Klik lagi di area lain bila perlu; tekan Undo kalau salah.', 'Eyedropper on. Click the background colour to remove on the image. Click other areas if needed; press Undo if it was a mistake.'), 'warn');
+    else say('');
+  }
+  const hex2 = (v) => v.toString(16).padStart(2, '0');
+  function pipeAt(x, y) {
+    const i = (y * C.img.width + x) * 4, d = C.img.data;
+    if (d[i + 3] === 0) { say(L('Titik itu sudah transparan. Klik bagian yang masih berwarna.', 'That spot is already transparent. Click a part that still has colour.'), 'warn'); return; }
+    const target = { red: d[i], green: d[i + 1], blue: d[i + 2] };
+    const r = E.knockoutColor(C.img, { target, tolerance: C.tol, feather: 12, mode: 'area', seed: { x, y } });
+    const hex = `#${hex2(d[i])}${hex2(d[i + 1])}${hex2(d[i + 2])}`.toUpperCase();
+    if (!r.changed) { say(L('Tidak ada piksel yang berubah. Naikkan toleransi lalu coba lagi.', 'No pixels changed. Raise the tolerance and try again.'), 'warn'); return; }
+    setImg(r.data);
+    say(L(`Warna ${hex} dibuang dari area yang diklik (${num(r.changed)} piksel). Klik area lain bila perlu, atau Undo kalau salah.`, `Colour ${hex} removed from the clicked area (${num(r.changed)} pixels). Click another area if needed, or Undo if it was a mistake.`));
+  }
+  // Eyedropper click, or click an enclosed pocket of the background colour to remove it.
   function pickAt(e) {
-    if (!C.bgMode || !C.img || C.busy || thinOn) return;
+    if (!C.img || C.busy || thinOn || (!C.pipe && !C.bgMode)) return;
     const c = $('chkCanvas'), r = c.getBoundingClientRect();
     const x = Math.floor(((e.clientX - r.left) / r.width) * C.img.width), y = Math.floor(((e.clientY - r.top) / r.height) * C.img.height);
     if (x < 0 || y < 0 || x >= C.img.width || y >= C.img.height) return;
+    if (C.pipe) { pipeAt(x, y); return; }
     const res = removeAt(C.img, C.bgMode, x, y);
     if (!res.changed) { say(L(`Titik itu bukan area ${colorName(C.bgMode)}. Klik tepat di area ${colorName(C.bgMode)} yang ingin dibuang.`, `That spot is not ${C.bgMode}. Click right inside the ${C.bgMode} area you want removed.`), 'warn'); return; }
     setImg(res.img);
@@ -166,7 +199,7 @@ export function mount(host) {
     if (id === 'dpi') { upscale(); return; }
     const cur = C.img;
     if (id === 'background') {
-      const bg = C.result.issues.find((i) => i.id === 'background')?.data.bg; if (!bg) return;
+      const bg = C.result.issues.find((i) => i.id === 'background')?.data.bg; if (!bg) { setPipe(true); return; }
       const r = removeBackground(cur, bg); C.bgMode = bg; setImg(r.img); say(bgMsg(bg, r.pockets));
     }
     if (id === 'haze') { setImg(fixHaze(cur)); say(L('Piksel setengah transparan dibuat tegas.', 'Semi-transparent pixels were made solid or fully transparent.')); }
@@ -188,6 +221,8 @@ export function mount(host) {
   };
   $('chkUndo').onclick = () => { if (!C.undo || C.busy) return; C.img = C.undo; C.undo = null; C.result = null; draw(); render(); check(); say(L('Langkah terakhir dibatalkan.', 'The last step was undone.')); };
   $('chkCanvas').addEventListener('click', pickAt);
+  $('chkPipe').onclick = () => { if (C.img && !C.busy) setPipe(!C.pipe); };
+  $('chkTol').oninput = () => { C.tol = Math.max(0, Math.min(100, Number($('chkTol').value) || 0)); $('chkTolVal').textContent = String(C.tol); };
   $('chkOrig').onclick = () => { if (!C.orig || C.busy) return; C.bgMode = ''; setImg(C.orig); C.upscaled = false; say(L('Kembali ke gambar asli.', 'Back to the original image.')); };
 
   // ---------- upscale (1 credit, on the server) ----------

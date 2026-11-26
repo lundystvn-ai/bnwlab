@@ -11,7 +11,7 @@ const CK_TEXT = {
   background: {
     ok: () => L('Latar sudah transparan.', 'The background is transparent.'),
     bad: (d) => L(`Latar ${d.bg === 'white' ? 'putih' : 'hitam'} belum dibuang dan akan ikut tercetak sebagai kotak.`, `The ${d.bg} background has not been removed and will print as a box.`),
-    warn: () => L('Gambar tidak punya bagian transparan. Kalau latarnya tidak ingin dicetak, buang dengan Knockout.', 'The image has no transparent areas. If the background should not print, remove it with Knockout.'),
+    warn: () => L('Gambar tidak punya bagian transparan. Kalau latarnya tidak ingin dicetak, buang dengan pipet: klik warna latarnya di gambar.', 'The image has no transparent areas. If the background should not print, remove it with the eyedropper: click the background colour on the image.'),
   },
   haze: {
     ok: () => L('Tidak ada piksel setengah transparan.', 'No semi-transparent pixels.'),
