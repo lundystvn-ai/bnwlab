@@ -280,10 +280,12 @@ function chooseMethod(pack) {
     <h3>${L('Pilih cara bayar', 'Choose how to pay')}</h3>
     <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${pack.kredit} ${L('kredit', 'credits')} · <b>${rupiah(pack.harga)}</b></p>
     <div class="pay-methods">
-      <button class="pack pack-btn" data-method="qris"><span><span class="pack-name">QRIS</span>
-        <span class="muted small">${L('GoPay, OVO, DANA, ShopeePay, atau m-banking · kredit masuk dalam hitungan detik', 'GoPay, OVO, DANA, ShopeePay or mobile banking · credits arrive within seconds')}</span></span><b class="pack-price">${L('Pilih', 'Choose')}</b></button>
-      <div class="pay-va"><span class="pack-name">${L('Transfer bank (Virtual Account)', 'Bank transfer (Virtual Account)')}</span>
-        <span class="muted small">${L('Dari m-banking, internet banking, atau ATM · berlaku 24 jam', 'From mobile banking, internet banking or an ATM · valid for 24 hours')}</span>
+      <button class="pay-qris" data-method="qris">
+        <span class="pack-name">QRIS <span class="badge b-success">${L('Disarankan', 'Recommended')}</span></span>
+        <span class="muted small">${L('Paling cepat: kredit masuk beberapa detik setelah bayar. Bisa dari GoPay, OVO, DANA, ShopeePay, atau m-banking apa pun.', 'Fastest: credits arrive seconds after you pay. Works with GoPay, OVO, DANA, ShopeePay or any banking app.')}</span>
+        <span class="btn btn-primary pay-qris-cta">${L('Bayar dengan QRIS', 'Pay with QRIS')}</span></button>
+      <div class="pay-va"><span class="pack-name">${L('Atau transfer bank (Virtual Account)', 'Or bank transfer (Virtual Account)')}</span>
+        <span class="muted small">${L('Dari m-banking, internet banking, atau ATM. Berlaku 24 jam. Kredit masuk setelah bank mengonfirmasi, biasanya beberapa menit.', 'From mobile banking, internet banking or an ATM. Valid for 24 hours. Credits arrive once the bank confirms, usually within a few minutes.')}</span>
         <div class="bank-grid">${BANKS.map(([id, name]) => `<button class="btn btn-secondary" data-bank="${id}">${name}</button>`).join('')}</div></div>
     </div>
     <div id="tpMsg"></div>
