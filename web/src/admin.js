@@ -21,7 +21,7 @@ export function mount(host) {
       <button role="tab" data-tab="pengguna">Pengguna</button>
       <button role="tab" data-tab="support">Support <span class="count" id="tabSupport" hidden></span></button>
       <button role="tab" data-tab="unduhan">Riwayat unduhan</button>
-      <button role="tab" data-tab="qris">QRIS &amp; kontak</button>
+      <button role="tab" data-tab="qris">QRIS &amp; notifikasi</button>
       <button role="tab" data-tab="koneksi">Akun BigJPG</button>
     </nav>
     <div id="admBody"></div>
@@ -82,6 +82,48 @@ export function mount(host) {
       const pct = r.total_quota ? Math.round((r.total_used / r.total_quota) * 100) : 0;
       box.innerHTML = `<div class="card"><div class="progress ${pct >= 90 ? 'bad' : pct >= 80 ? 'warn' : 'ok'}"><div class="head"><span>Kuota upscale BigJPG bulan ini · ${r.keys.filter((k) => k.active).length} akun</span><b class="num">${num(r.total_used)} / ${num(r.total_quota)}</b></div><div class="bar"><i style="width:${Math.min(100, pct)}%"></i></div><small>Sisa ${num(r.remaining)}${pct >= 80 ? ' · hampir habis: tambah akun di tab Akun BigJPG' : ''}</small></div></div>`;
     } catch {}
+  }
+
+  // ---------- Telegram notifications ----------
+  async function telegramBox() {
+    const box = $('tgBox'); if (!box) return;
+    const { invoke } = await import('./supa.js');
+    let st;
+    try { st = await invoke('telegram-admin', { action: 'status' }); }
+    catch (e) { box.innerHTML = notice(esc(e.message), 'error'); return; }
+    if (!alive || !box.isConnected) return;
+    const head = `<div class="toolbar" style="margin:0"><div><h2 style="margin:0;font-size:var(--text-lg)">Notifikasi Telegram</h2>
+      <p class="small muted" style="margin:2px 0 0">Bot mengirim pesan ke HP Anda setiap kali pembeli menekan "Saya sudah bayar", walaupun website tidak dibuka.</p></div>
+      ${st.connected ? '<span class="badge b-success">Aktif</span>' : st.has_token ? '<span class="badge b-warning">Belum tersambung</span>' : '<span class="badge">Belum diatur</span>'}</div>`;
+    const steps = `<ol class="qris-steps small">
+      <li>Di Telegram, buka <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>, kirim <span class="mono">/newbot</span>, beri nama (misalnya BNW Lab Admin).</li>
+      <li>Salin <b>token</b> yang diberikan BotFather, tempel di bawah, lalu klik Simpan token.</li>
+      <li>Buka bot baru Anda, tekan <b>Start</b>, lalu klik <b>Sambungkan</b> di sini.</li></ol>`;
+    const tokenForm = `<form id="tgForm" class="row" style="flex-wrap:wrap;align-items:flex-end"><div class="field grow" style="min-width:260px"><label for="tgToken">Token bot</label><input id="tgToken" type="password" autocomplete="off" placeholder="123456789:AAH…"></div><button class="btn btn-primary btn-lg" type="submit">Simpan token</button></form>`;
+    if (st.connected) {
+      box.innerHTML = `${head}${notice(`Terkirim ke <b>${esc(st.chat_name || '-')}</b> lewat bot <b>@${esc(st.bot || '')}</b>.`, 'ok')}
+        <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" id="tgTest">Kirim pesan tes</button><button class="btn btn-secondary" id="tgReconnect">Ganti chat penerima</button><button class="btn btn-quiet" id="tgOff">Matikan</button></div><div id="tgMsg"></div>`;
+    } else if (st.has_token) {
+      box.innerHTML = `${head}${notice(`Bot <b>@${esc(st.bot || '')}</b> tersimpan. Buka <a href="https://t.me/${esc(st.bot || '')}" target="_blank" rel="noopener">t.me/${esc(st.bot || '')}</a>, tekan <b>Start</b>, lalu klik Sambungkan.`, 'warn')}
+        <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" id="tgConnect">Sambungkan</button><button class="btn btn-quiet" id="tgOff">Hapus bot</button></div>
+        <details><summary class="xs muted" style="cursor:pointer">Ganti token bot</summary><div style="margin-top:8px">${tokenForm}</div></details><div id="tgMsg"></div>`;
+    } else {
+      box.innerHTML = `${head}${steps}${tokenForm}<div id="tgMsg"></div>`;
+    }
+    const run = async (btn, body) => {
+      if (btn) btn.disabled = true;
+      try { const r = await invoke('telegram-admin', body); toast(r.message); await telegramBox(); }
+      catch (e) { const m = $('tgMsg'); if (m) m.innerHTML = notice(esc(e.message), 'error'); }
+      finally { if (btn && btn.isConnected) btn.disabled = false; }
+    };
+    const f = $('tgForm'); if (f) f.onsubmit = (e) => { e.preventDefault(); run(f.querySelector('button'), { action: 'save_token', token: $('tgToken').value.trim() }); };
+    $('tgConnect')?.addEventListener('click', (e) => run(e.currentTarget, { action: 'connect' }));
+    $('tgReconnect')?.addEventListener('click', (e) => run(e.currentTarget, { action: 'connect' }));
+    $('tgTest')?.addEventListener('click', (e) => run(e.currentTarget, { action: 'test' }));
+    $('tgOff')?.addEventListener('click', async (e) => {
+      const b = e.currentTarget;
+      if (await confirmBox({ title: 'Matikan notifikasi Telegram?', body: 'Token bot dihapus dari website. Bot di Telegram tetap ada.', okLabel: 'Matikan', danger: true })) run(b, { action: 'disconnect' });
+    });
   }
 
   // ---------- support tickets ----------
@@ -253,7 +295,9 @@ export function mount(host) {
         <p class="small muted" style="margin:0">Dipakai untuk tombol "Kirim bukti via WhatsApp" setelah pembeli membayar. Kosongkan untuk menyembunyikan.</p>
         <form id="waForm" class="row" style="flex-wrap:wrap;align-items:flex-end"><div class="field grow" style="min-width:220px"><label for="waNum">Nomor WhatsApp</label><input id="waNum" inputmode="tel" placeholder="62812xxxxxxx" value="${esc(cfg.kontakWhatsApp || '')}"></div><button class="btn btn-primary btn-lg" type="submit">Simpan</button></form>
         <div id="waMsg"></div>
-      </section>`;
+      </section>
+      <section class="card stack" style="margin-top:16px" id="tgBox"><div class="empty">Memuat…</div></section>`;
+    telegramBox();
     let pending = null;
     const setCandidate = async (p, src) => {
       p = String(p || '').trim();
