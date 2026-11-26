@@ -134,7 +134,7 @@ body:not(.is-admin) .admin-only{display:none!important}
 .steps li{counter-increment:s;padding:18px;border-radius:var(--radius-lg);background:var(--color-surface-2);border:1px solid var(--color-border)}
 .steps li::before{content:counter(s);display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--color-text);color:var(--color-bg);font-weight:700;font-size:var(--text-sm);margin-bottom:10px}
 .steps b{display:block;margin-bottom:4px;font-size:var(--text-md)}
-.prices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.prices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 .price{display:flex;flex-direction:column;gap:10px}
 .price.pop{border:2px solid var(--color-accent)}
 .price .amt{font-size:var(--text-2xl);line-height:var(--leading-2xl);font-weight:700;font-family:var(--font-mono)}
@@ -258,7 +258,7 @@ td.num,th.num{text-align:right}
 .check-list .notice{margin-bottom:6px}
 
 /* ---------- responsive ---------- */
-@media (max-width:1000px){:root{--header-h:84px}.top{flex-wrap:wrap;align-content:center;row-gap:0;padding-top:4px}.menu{order:10;width:100%;margin:0 0 4px;overflow-x:auto;scrollbar-width:none}.menu::-webkit-scrollbar{display:none}.menu a{white-space:nowrap}.hero{grid-template-columns:1fr;gap:28px;padding-top:36px}.cards,.prices,.steps{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}
+@media (max-width:1000px){:root{--header-h:84px}.top{flex-wrap:wrap;align-content:center;row-gap:0;padding-top:4px}.menu{order:10;width:100%;margin:0 0 4px;overflow-x:auto;scrollbar-width:none}.menu::-webkit-scrollbar{display:none}.menu a{white-space:nowrap}.hero{grid-template-columns:1fr;gap:28px;padding-top:36px}.cards,.steps{grid-template-columns:1fr}.prices{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}
 @media (max-width:760px){
   .hide-sm{display:none!important}
   .user{display:none!important}
@@ -304,3 +304,4 @@ td .row{gap:6px;flex-wrap:nowrap}
 .mono-box{font-family:var(--font-mono);font-size:var(--text-2xs);word-break:break-all;background:var(--color-bg);border:1px solid var(--color-border);border-radius:var(--radius-sm);padding:8px;max-height:110px;overflow:auto}
 .metrics.m3{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:760px){.metrics.m3{grid-template-columns:1fr}}
+@media (max-width:560px){.prices{grid-template-columns:1fr}}
