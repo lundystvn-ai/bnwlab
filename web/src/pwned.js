@@ -15,4 +15,7 @@ export async function leakedCount(password) {
     return 0;
   } catch { return 0; } finally { clearTimeout(t); }
 }
-export const leakedMessage = (n) => `Password ini pernah bocor di internet (${Number(n).toLocaleString('id-ID')}× ditemukan di data kebocoran). Pakai password lain yang belum pernah dipakai di tempat lain.`;
+import { L } from './i18n.js';
+export const leakedMessage = (n) => L(
+  `Password ini pernah bocor di internet (${Number(n).toLocaleString('id-ID')}× ditemukan di data kebocoran). Pakai password lain yang belum pernah dipakai di tempat lain.`,
+  `This password has appeared in data breaches (${Number(n).toLocaleString('en-GB')} times). Please choose a password you have not used anywhere else.`);

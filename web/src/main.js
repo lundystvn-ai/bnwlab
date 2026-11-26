@@ -3,6 +3,7 @@ import { db } from './supa.js';
 import { $, closeModal, toast } from './util.js';
 import { state, onSession, applySession, clearSession, signOut, authDialog, topupDialog, newPasswordDialog, loadPackages, loadSettings, refreshCredits, isAdmin } from './session.js';
 import { renderLanding, pricing } from './landing.js';
+import { lang, L, setLang } from './i18n.js';
 
 const APP_ROUTES = ['editor', 'upscale', 'kredit', 'admin', 'support'];
 const OPEN_ROUTES = ['support'];   // app pages that guests may open too
@@ -83,7 +84,7 @@ onSession(() => {
 function syncTheme() {
   const light = document.documentElement.dataset.theme === 'light';
   $('themeIcon').querySelector('use').setAttribute('href', light ? '#i-moon' : '#i-sun');
-  $('themeBtn').setAttribute('aria-label', light ? 'Mode gelap' : 'Mode terang');
+  $('themeBtn').setAttribute('aria-label', light ? L('Mode gelap', 'Dark mode') : L('Mode terang', 'Light mode'));
   document.querySelector('meta[name=theme-color]').content = light ? '#f4f4f4' : '#1d1d1d';
 }
 $('themeBtn').onclick = () => {
@@ -94,7 +95,7 @@ $('themeBtn').onclick = () => {
 };
 $('loginBtn').onclick = () => authDialog('masuk', '', () => go('editor'));
 $('signupBtn').onclick = () => authDialog('daftar', '', () => go('editor'));
-$('logoutBtn').onclick = async () => { await signOut(); current = null; go(''); toast('Anda sudah keluar.'); };
+$('logoutBtn').onclick = async () => { await signOut(); current = null; go(''); toast(L('Anda sudah keluar.', 'You are signed out.')); };
 $('creditChip').onclick = () => topupDialog();
 
 document.addEventListener('click', (e) => {
@@ -108,6 +109,20 @@ $('modal').addEventListener('click', (e) => { if (e.target.id === 'modal') close
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 window.addEventListener('focus', () => refreshCredits());
 window.addEventListener('hashchange', render);
+
+// ---------- language ----------
+function applyStaticText() {
+  const pick = (v) => { const [id, en] = v.split('|'); return L(id, en ?? id); };
+  document.querySelectorAll('[data-l]').forEach((el) => (el.textContent = pick(el.dataset.l)));
+  document.querySelectorAll('[data-la]').forEach((el) => el.setAttribute('aria-label', pick(el.dataset.la)));
+  document.querySelectorAll('[data-lt]').forEach((el) => el.setAttribute('title', pick(el.dataset.lt)));
+  const b = $('langBtn');
+  b.innerHTML = `<span${lang === 'id' ? ' class="on"' : ''}>ID</span><span${lang === 'en' ? ' class="on"' : ''}>EN</span>`;
+  b.setAttribute('aria-label', L('Ganti bahasa ke English', 'Switch language to Bahasa Indonesia'));
+  b.title = b.getAttribute('aria-label');
+  b.onclick = () => setLang(lang === 'id' ? 'en' : 'id');
+}
+applyStaticText();
 
 // ---------- boot ----------
 (async function boot() {
@@ -128,5 +143,5 @@ window.addEventListener('hashchange', render);
   const p = $('prices'); if (p) p.innerHTML = pricing();
 })().catch((e) => {
   console.error(e);
-  view.innerHTML = `<div class="page-in"><div class="notice error">Gagal memulai: ${String(e.message || e)}</div></div>`;
+  view.innerHTML = `<div class="page-in"><div class="notice error">${L('Gagal memulai', 'Failed to start')}: ${String(e.message || e)}</div></div>`;
 });

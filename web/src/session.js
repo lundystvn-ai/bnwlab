@@ -3,6 +3,7 @@ import { db, onAfterInvoke } from './supa.js';
 import { cfg } from './config.js';
 import { $, esc, rupiah, openModal, closeModal, notice } from './util.js';
 import { leakedCount, leakedMessage } from './pwned.js';
+import { L, tr, pkgName, pkgNote } from './i18n.js';
 
 export const state = {
   user: null,
@@ -68,41 +69,41 @@ const redirectTo = () => location.origin + location.pathname;
 export function authDialog(mode = 'masuk', email = '', after) {
   if (mode === 'link') mode = 'masuk';
   const daftar = mode === 'daftar', lupa = mode === 'lupa', noPass = lupa;
-  const title = daftar ? 'Daftar akun' : lupa ? 'Lupa password' : 'Masuk';
+  const title = daftar ? L('Daftar akun', 'Create an account') : lupa ? L('Lupa password', 'Forgot password') : L('Masuk', 'Sign in');
   openModal(`
     <div class="modal-logo"><img src="/logo-64.png" alt="BNW Lab" height="28"></div>
     <h3>${title}</h3>
-    ${daftar ? '<p class="muted">Akun baru langsung dapat <b>5 kredit gratis</b> untuk mencoba.</p>' : ''}
-    ${lupa ? '<p class="muted">Masukkan email akun. Kami kirim kode untuk membuat atau mengganti password.</p>' : ''}
+    ${daftar ? `<p class="muted">${L('Akun baru langsung dapat <b>5 kredit gratis</b> untuk mencoba.', 'New accounts get <b>5 free credits</b> to try it out.')}</p>` : ''}
+    ${lupa ? `<p class="muted">${L('Masukkan email akun. Kami kirim kode untuk membuat atau mengganti password.', 'Enter your account email. We will send a code to create or change your password.')}</p>` : ''}
     <form id="pwForm" class="form">
-      ${daftar ? '<div class="field"><label for="pwName">Nama</label><input id="pwName" required autocomplete="name" autofocus></div>' : ''}
+      ${daftar ? `<div class="field"><label for="pwName">${L('Nama', 'Name')}</label><input id="pwName" required autocomplete="name" autofocus></div>` : ''}
       <div class="field"><label for="pwEmail">Email</label><input id="pwEmail" type="email" required autocomplete="email" value="${esc(email)}"${daftar ? '' : ' autofocus'}></div>
-      ${noPass ? '' : `<div class="field"><label for="pwPass">Password${daftar ? ' <span class="muted">(minimal 8 karakter)</span>' : ''}</label><input id="pwPass" type="password" required minlength="${daftar ? 8 : 1}" autocomplete="${daftar ? 'new-password' : 'current-password'}"></div>`}
+      ${noPass ? '' : `<div class="field"><label for="pwPass">Password${daftar ? ` <span class="muted">${L('(minimal 8 karakter)', '(at least 8 characters)')}</span>` : ''}</label><input id="pwPass" type="password" required minlength="${daftar ? 8 : 1}" autocomplete="${daftar ? 'new-password' : 'current-password'}"></div>`}
       <div id="pwMsg" aria-live="polite"></div>
-      <button class="btn btn-primary btn-lg btn-block" type="submit" id="pwSubmit">${daftar ? 'Daftar' : lupa ? 'Kirim kode' : 'Masuk'}</button>
+      <button class="btn btn-primary btn-lg btn-block" type="submit" id="pwSubmit">${daftar ? L('Daftar', 'Sign up') : lupa ? L('Kirim kode', 'Send code') : L('Masuk', 'Sign in')}</button>
     </form>
     <div class="auth-links">
-      ${lupa ? '<a href="#" data-pw="masuk">← Kembali ke Masuk</a>' : `
-        ${daftar ? '<a href="#" data-pw="masuk">Sudah punya akun? Masuk</a>' : '<a href="#" data-pw="daftar">Belum punya akun? Daftar</a>'}
-        ${mode === 'masuk' ? '<a href="#" data-pw="lupa">Lupa password?</a>' : ''}`}
+      ${lupa ? `<a href="#" data-pw="masuk">${L('← Kembali ke Masuk', '← Back to sign in')}</a>` : `
+        ${daftar ? `<a href="#" data-pw="masuk">${L('Sudah punya akun? Masuk', 'Already have an account? Sign in')}</a>` : `<a href="#" data-pw="daftar">${L('Belum punya akun? Daftar', 'No account yet? Sign up')}</a>`}
+        ${mode === 'masuk' ? `<a href="#" data-pw="lupa">${L('Lupa password?', 'Forgot password?')}</a>` : ''}`}
     </div>`);
   document.querySelectorAll('[data-pw]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); authDialog(a.dataset.pw, $('pwEmail').value.trim(), after); }));
   $('pwForm').onsubmit = async (e) => {
     e.preventDefault();
     const em = $('pwEmail').value.trim().toLowerCase();
     const btn = $('pwSubmit'), label = btn.textContent;
-    btn.disabled = true; btn.textContent = 'Memproses…';
+    btn.disabled = true; btn.textContent = L('Memproses…', 'Working…');
     let error = null, session = null, okMsg = '';
     if (lupa) {
       ({ error } = await db.auth.resetPasswordForEmail(em, { redirectTo: redirectTo() }));
-      okMsg = `Link untuk membuat/mengganti password dikirim ke <b>${esc(em)}</b>.`;
+      okMsg = L(`Link untuk membuat/mengganti password dikirim ke <b>${esc(em)}</b>.`, `We sent a link to create or change your password to <b>${esc(em)}</b>.`);
     } else if (daftar) {
       const leaked = await leakedCount($('pwPass').value);
       if (leaked) { btn.disabled = false; btn.textContent = label; $('pwMsg').innerHTML = notice(leakedMessage(leaked), 'error'); return; }
       const r = await db.auth.signUp({ email: em, password: $('pwPass').value, options: { emailRedirectTo: redirectTo(), data: { name: $('pwName').value.trim() } } });
       error = r.error; session = r.data?.session;
-      okMsg = `Akun dibuat. Cek email <b>${esc(em)}</b> dan klik link konfirmasi, lalu masuk.`;
-      if (!error && r.data?.user && r.data.user.identities?.length === 0) error = { message: 'Email ini sudah terdaftar. Silakan masuk, atau pakai "Lupa password".' };
+      okMsg = L(`Akun dibuat. Cek email <b>${esc(em)}</b> dan klik link konfirmasi, lalu masuk.`, `Account created. Check <b>${esc(em)}</b>, click the confirmation link, then sign in.`);
+      if (!error && r.data?.user && r.data.user.identities?.length === 0) error = { message: L('Email ini sudah terdaftar. Silakan masuk, atau pakai "Lupa password".', 'This email is already registered. Sign in, or use "Forgot password".') };
     } else {
       const r = await db.auth.signInWithPassword({ email: em, password: $('pwPass').value });
       error = r.error; session = r.data?.session;
@@ -111,8 +112,8 @@ export function authDialog(mode = 'masuk', email = '', after) {
     if (!error && lupa) return otpDialog(em, '', after);
     if (error) {
       const m = /invalid login/i.test(error.message)
-        ? 'Email atau password salah. Belum punya password? Klik "Lupa password?" untuk membuatnya.'
-        : /not confirmed/i.test(error.message) ? 'Email belum dikonfirmasi. Cek email dan klik link konfirmasi.' : esc(error.message);
+        ? L('Email atau password salah. Belum punya password? Klik "Lupa password?" untuk membuatnya.', 'Wrong email or password. No password yet? Click "Forgot password?" to create one.')
+        : /not confirmed/i.test(error.message) ? L('Email belum dikonfirmasi. Cek email dan klik link konfirmasi.', 'Your email is not confirmed yet. Check your inbox and click the confirmation link.') : esc(error.message);
       $('pwMsg').innerHTML = notice(m, 'error');
     } else if (session) {
       await applySession(session); closeModal(); after?.();
@@ -122,28 +123,28 @@ export function authDialog(mode = 'masuk', email = '', after) {
 
 function otpDialog(email, msg = '', after) {
   openModal(`
-    <h3>Masukkan kode</h3>
-    <p class="muted">Kode verifikasi dikirim ke <b>${esc(email)}</b>. Cek folder Spam bila tidak ada.</p>
+    <h3>${L('Masukkan kode', 'Enter the code')}</h3>
+    <p class="muted">${L(`Kode verifikasi dikirim ke <b>${esc(email)}</b>. Cek folder Spam bila tidak ada.`, `We sent a verification code to <b>${esc(email)}</b>. Check your Spam folder if you don't see it.`)}</p>
     <form id="otpForm" class="form">
-      <div class="field"><label for="otpCode">Kode dari email</label>
+      <div class="field"><label for="otpCode">${L('Kode dari email', 'Code from the email')}</label>
         <input id="otpCode" class="otp" required inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" maxlength="10" placeholder="123456" autofocus></div>
       <div id="otpMsg" aria-live="polite">${msg}</div>
-      <button class="btn btn-primary btn-lg btn-block" type="submit" id="otpSubmit">Verifikasi</button>
+      <button class="btn btn-primary btn-lg btn-block" type="submit" id="otpSubmit">${L('Verifikasi', 'Verify')}</button>
     </form>
-    <div class="auth-links"><a href="#" id="otpResend">Kirim ulang kode</a><a href="#" id="otpBack">← Ganti email</a></div>`);
+    <div class="auth-links"><a href="#" id="otpResend">${L('Kirim ulang kode', 'Resend code')}</a><a href="#" id="otpBack">${L('← Ganti email', '← Change email')}</a></div>`);
   $('otpBack').onclick = (e) => { e.preventDefault(); authDialog('lupa', email, after); };
   $('otpResend').onclick = async (e) => {
     e.preventDefault();
     const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() });
-    $('otpMsg').innerHTML = error ? notice(esc(error.message), 'error') : notice('Kode baru dikirim. Pakai kode yang paling baru.', 'ok');
+    $('otpMsg').innerHTML = error ? notice(esc(error.message), 'error') : notice(L('Kode baru dikirim. Pakai kode yang paling baru.', 'A new code was sent. Use the most recent one.'), 'ok');
   };
   $('otpForm').onsubmit = async (e) => {
     e.preventDefault();
-    const b = $('otpSubmit'); b.disabled = true; b.textContent = 'Memeriksa…';
+    const b = $('otpSubmit'); b.disabled = true; b.textContent = L('Memeriksa…', 'Checking…');
     const { data, error } = await db.auth.verifyOtp({ email, token: $('otpCode').value.trim(), type: 'recovery' });
-    b.disabled = false; b.textContent = 'Verifikasi';
+    b.disabled = false; b.textContent = L('Verifikasi', 'Verify');
     if (error || !data?.session) {
-      $('otpMsg').innerHTML = notice(/expired|invalid/i.test(error?.message || '') ? 'Kode salah atau sudah kedaluwarsa. Periksa lagi, atau klik "Kirim ulang kode".' : esc(error?.message || 'Verifikasi gagal.'), 'error');
+      $('otpMsg').innerHTML = notice(/expired|invalid/i.test(error?.message || '') ? L('Kode salah atau sudah kedaluwarsa. Periksa lagi, atau klik "Kirim ulang kode".', 'The code is wrong or expired. Check it, or click "Resend code".') : esc(error?.message || L('Verifikasi gagal.', 'Verification failed.')), 'error');
       return;
     }
     await applySession(data.session);
@@ -153,11 +154,11 @@ function otpDialog(email, msg = '', after) {
 
 export function newPasswordDialog(after) {
   openModal(`
-    <h3>Buat password baru</h3>
+    <h3>${L('Buat password baru', 'Create a new password')}</h3>
     <form id="npForm" class="form">
-      <div class="field"><label for="npPass">Password baru <span class="muted">(minimal 8 karakter)</span></label><input id="npPass" type="password" required minlength="8" autocomplete="new-password" autofocus></div>
+      <div class="field"><label for="npPass">${L('Password baru', 'New password')} <span class="muted">${L('(minimal 8 karakter)', '(at least 8 characters)')}</span></label><input id="npPass" type="password" required minlength="8" autocomplete="new-password" autofocus></div>
       <div id="npMsg" aria-live="polite"></div>
-      <div class="modal-actions"><button type="button" class="btn btn-quiet" data-close>Nanti</button><button class="btn btn-primary" type="submit">Simpan password</button></div>
+      <div class="modal-actions"><button type="button" class="btn btn-quiet" data-close>${L('Nanti', 'Later')}</button><button class="btn btn-primary" type="submit">${L('Simpan password', 'Save password')}</button></div>
     </form>`);
   $('npForm').onsubmit = async (e) => {
     e.preventDefault();
@@ -165,7 +166,7 @@ export function newPasswordDialog(after) {
     if (leaked) { $('npMsg').innerHTML = notice(leakedMessage(leaked), 'error'); return; }
     const { error } = await db.auth.updateUser({ password: $('npPass').value });
     if (error) { $('npMsg').innerHTML = notice(esc(error.message), 'error'); return; }
-    $('npMsg').innerHTML = notice('Password disimpan. Mulai sekarang bisa masuk dengan email + password.', 'ok');
+    $('npMsg').innerHTML = notice(L('Password disimpan. Mulai sekarang bisa masuk dengan email + password.', 'Password saved. From now on you can sign in with email + password.'), 'ok');
     setTimeout(() => { closeModal(); after?.(); }, 1200);
   };
 }
@@ -189,17 +190,17 @@ export async function topupDialog(reason = '') {
   const mine = await db.from('payments').select('id,package_id,kredit,jumlah,status,claimed_at,created_at').eq('user_id', state.user.id).order('created_at', { ascending: false }).limit(5);
   const waiting = (mine.data || []).filter((p) => p.status === 'pending' && p.claimed_at);
   openModal(`
-    <h3>Isi kredit</h3>
+    <h3>${L('Isi kredit', 'Top up credits')}</h3>
     ${reason ? `<p class="muted">${esc(reason)}</p>` : ''}
-    <div class="wallet-now">Saldo sekarang <b class="mono">${state.credits}</b> kredit</div>
-    ${waiting.length ? notice(`${waiting.length} pembayaran menunggu konfirmasi admin (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Kredit masuk otomatis setelah dicek.`, 'warn') : ''}
+    <div class="wallet-now">${L(`Saldo sekarang <b class="mono">${state.credits}</b> kredit`, `Current balance <b class="mono">${state.credits}</b> credits`)}</div>
+    ${waiting.length ? notice(L(`${waiting.length} pembayaran menunggu konfirmasi admin (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Kredit masuk otomatis setelah dicek.`, `${waiting.length} payment(s) waiting for admin confirmation (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Credits are added once checked.`), 'warn') : ''}
     <div class="pack-list" role="list">${state.packages.map((p) => `
       <button class="pack pack-btn${p.populer ? ' pop' : ''}" data-pack="${esc(p.id)}" role="listitem">
-        <span><span class="pack-name">${esc(p.nama)}${p.populer ? ' <span class="badge b-accent">Terlaris</span>' : ''}</span>
-        <span class="muted small">${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit · ${esc(p.catatan || '')}</span></span>
+        <span><span class="pack-name">${esc(pkgName(p))}${p.populer ? ` <span class="badge b-accent">${L('Terlaris', 'Most popular')}</span>` : ''}</span>
+        <span class="muted small">${L(`${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit`, `${p.kredit} credits · ${rupiah(Math.round(p.harga / p.kredit))}/credit`)} · ${esc(pkgNote(p))}</span></span>
         <b class="pack-price">${rupiah(p.harga)}</b>
       </button>`).join('')}</div>
-    <p class="muted small">Bayar dengan QRIS dari e-wallet atau m-banking apa pun. Kredit tidak hangus.</p>
+    <p class="muted small">${L('Bayar dengan QRIS dari e-wallet atau m-banking apa pun. Kredit tidak hangus.', 'Pay with QRIS from any Indonesian e-wallet or mobile banking app. Credits never expire.')}</p>
     <div id="tpMsg"></div>`);
   document.querySelectorAll('[data-pack]').forEach((b) => (b.onclick = () => startTopup(b.dataset.pack, b)));
 }
@@ -214,7 +215,7 @@ async function startTopup(packId, btn) {
     if (p) { data = { id: 'manual-' + Date.now().toString(36), package: p.id, nama: p.nama, kredit: p.kredit, harga: p.harga }; error = null; offline = true; }
   }
   if (error) {
-    const m = /too_many_pending/.test(error.message) ? 'Terlalu banyak pembayaran yang belum selesai. Selesaikan atau batalkan dulu.' : esc(error.message);
+    const m = /too_many_pending/.test(error.message) ? L('Terlalu banyak pembayaran yang belum selesai. Selesaikan atau batalkan dulu.', 'Too many unfinished payments. Complete or cancel them first.') : esc(tr(error.message));
     $('tpMsg').innerHTML = notice(m, 'error'); return;
   }
   let payload, svg;
@@ -223,36 +224,36 @@ async function startTopup(packId, btn) {
     const QR = (await import('qrcode')).default;
     payload = dynamicQris(cfg.qrisStatic, data.harga);
     svg = await QR.toString(payload, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#000000', light: '#ffffff' } });
-  } catch (e) { $('tpMsg').innerHTML = notice('QRIS tidak dapat dibuat: ' + esc(e.message), 'error'); return; }
+  } catch (e) { $('tpMsg').innerHTML = notice(L('QRIS tidak dapat dibuat: ', 'Could not create the QRIS code: ') + esc(e.message), 'error'); return; }
   const { merchantName } = await import('./qris.js');
   const ref = offline ? data.id.slice(-6).toUpperCase() : String(data.id).slice(0, 8).toUpperCase();
   openModal(`
-    <h3>Bayar ${rupiah(data.harga)}</h3>
-    <p class="muted">Paket <b>${esc(data.nama)}</b> · ${data.kredit} kredit · kode <span class="mono">${ref}</span></p>
+    <h3>${L('Bayar', 'Pay')} ${rupiah(data.harga)}</h3>
+    <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(state.packages.find((x) => x.id === packId) || { nama: data.nama }))}</b> · ${data.kredit} ${L('kredit', 'credits')} · ${L('kode', 'code')} <span class="mono">${ref}</span></p>
     <div class="qris-box"><div class="qris">${svg}</div>
       <div class="qris-meta"><b>${esc(merchantName(cfg.qrisStatic))}</b><span class="mono">${rupiah(data.harga)}</span></div></div>
     <ol class="qris-steps small">
-      <li>Buka GoPay, OVO, DANA, ShopeePay, atau m-banking, lalu scan QRIS ini.</li>
-      <li>Pastikan nominal <b>${rupiah(data.harga)}</b> dan bayar.</li>
-      <li>Tekan <b>Saya sudah bayar</b>. Kredit masuk setelah admin mengecek pembayaran.</li>
+      <li>${L('Buka GoPay, OVO, DANA, ShopeePay, atau m-banking, lalu scan QRIS ini.', 'Open GoPay, OVO, DANA, ShopeePay or your mobile banking app and scan this QRIS code.')}</li>
+      <li>${L(`Pastikan nominal <b>${rupiah(data.harga)}</b> dan bayar.`, `Check that the amount is <b>${rupiah(data.harga)}</b> and pay.`)}</li>
+      <li>${L('Tekan <b>Saya sudah bayar</b>. Kredit masuk setelah admin mengecek pembayaran.', 'Press <b>I have paid</b>. Credits are added once the admin has checked the payment.')}</li>
     </ol>
     <div id="tpMsg"></div>
-    <div class="modal-actions"><button class="btn btn-quiet" id="tpCancel">Batal</button><button class="btn btn-primary btn-lg" id="tpPaid">Saya sudah bayar</button></div>`, { wide: false });
+    <div class="modal-actions"><button class="btn btn-quiet" id="tpCancel">${L('Batal', 'Cancel')}</button><button class="btn btn-primary btn-lg" id="tpPaid">${L('Saya sudah bayar', 'I have paid')}</button></div>`, { wide: false });
   $('tpCancel').onclick = async () => { if (!offline) await db.rpc('cancel_topup', { p_id: data.id }); closeModal(); };
   $('tpPaid').onclick = async () => {
     const b = $('tpPaid'); b.disabled = true;
     if (!offline) {
       const r = await db.rpc('claim_topup', { p_id: data.id });
-      if (r.error) { b.disabled = false; $('tpMsg').innerHTML = notice(esc(r.error.message), 'error'); return; }
+      if (r.error) { b.disabled = false; $('tpMsg').innerHTML = notice(esc(tr(r.error.message)), 'error'); return; }
     }
     const wa = waLink(`Halo, saya sudah bayar QRIS ${rupiah(data.harga)} untuk paket ${data.nama} (kode ${ref}). Email: ${state.user.email}`);
     openModal(`
-      <h3>Terima kasih!</h3>
+      <h3>${L('Terima kasih!', 'Thank you!')}</h3>
       ${notice(offline
-        ? `Kirim bukti pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) ke admin. <b>${data.kredit} kredit</b> ditambahkan setelah dicek.`
-        : `Pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) sedang dicek admin. <b>${data.kredit} kredit</b> masuk otomatis setelah dikonfirmasi.`, 'ok')}
-      <p class="muted small">Biasanya tidak lama. Saldo diperbarui sendiri saat kamu kembali ke halaman ini.</p>
-      <div class="modal-actions">${wa ? `<a class="btn btn-secondary" href="${esc(wa)}" target="_blank" rel="noopener">Kirim bukti via WhatsApp</a>` : ''}<button class="btn btn-primary" data-close>Selesai</button></div>`);
+        ? L(`Kirim bukti pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) ke admin. <b>${data.kredit} kredit</b> ditambahkan setelah dicek.`, `Send the payment proof for <b>${rupiah(data.harga)}</b> (code <span class="mono">${ref}</span>) to the admin. <b>${data.kredit} credits</b> are added once checked.`)
+        : L(`Pembayaran <b>${rupiah(data.harga)}</b> (kode <span class="mono">${ref}</span>) sedang dicek admin. <b>${data.kredit} kredit</b> masuk otomatis setelah dikonfirmasi.`, `Your payment of <b>${rupiah(data.harga)}</b> (code <span class="mono">${ref}</span>) is being checked by the admin. <b>${data.kredit} credits</b> are added as soon as it is confirmed.`), 'ok')}
+      <p class="muted small">${L('Biasanya tidak lama. Saldo diperbarui sendiri saat kamu kembali ke halaman ini.', 'This usually doesn\'t take long. Your balance updates by itself when you come back to this page.')}</p>
+      <div class="modal-actions">${wa ? `<a class="btn btn-secondary" href="${esc(wa)}" target="_blank" rel="noopener">${L('Kirim bukti via WhatsApp', 'Send proof via WhatsApp')}</a>` : ''}<button class="btn btn-primary" data-close>${L('Selesai', 'Done')}</button></div>`);
   };
 }
 

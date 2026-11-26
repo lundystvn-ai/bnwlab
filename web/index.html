@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Code+Pro:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-<a class="skip" href="#view">Lewati ke konten</a>
+<a class="skip" href="#view" data-l="Lewati ke konten|Skip to content">Lewati ke konten</a>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></symbol>
  <symbol id="i-halftone" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="14" cy="6" r="2"/><circle cx="6" cy="14" r="2"/><circle cx="13" cy="13" r="1.5"/><circle cx="19" cy="11" r="1"/><circle cx="11" cy="19" r="1"/><circle cx="18" cy="18" r=".8"/></symbol>
@@ -54,23 +54,24 @@
 </svg>
 
 <header class="top" id="top">
-  <a class="logo" href="#" data-route="" aria-label="BNW Lab, beranda"><img src="/logo-64.png" alt="BNW Lab" width="118" height="28"></a>
-  <nav class="menu" aria-label="Utama">
+  <a class="logo" href="#" data-route="" data-la="BNW Lab, beranda|BNW Lab, home" aria-label="BNW Lab, beranda"><img src="/logo-64.png" alt="BNW Lab" width="118" height="28"></a>
+  <nav class="menu" aria-label="Utama" data-la="Utama|Main">
     <a href="#editor" data-route="editor">Editor</a>
     <a href="#upscale" data-route="upscale">Upscale</a>
-    <a href="#kredit" data-route="kredit" class="auth-only">Riwayat kredit</a>
+    <a href="#kredit" data-route="kredit" class="auth-only" data-l="Riwayat kredit|Credit history">Riwayat kredit</a>
     <a href="#admin" data-route="admin" class="admin-only">Admin <span class="count" id="menuCount" hidden></span></a>
-    <a href="#harga" data-route="harga">Harga</a>
+    <a href="#harga" data-route="harga" data-l="Harga|Pricing">Harga</a>
     <a href="#faq" data-route="faq">FAQ</a>
     <a href="#support" data-route="support">Support</a>
   </nav>
   <span class="grow"></span>
-  <button class="credit" id="creditChip" hidden aria-label="Saldo kredit, isi kredit" title="Isi kredit"><svg class="i i-sm"><use href="#i-coins"/></svg><b id="creditValue">0</b><span class="hide-sm">kredit</span><svg class="i i-sm plus"><use href="#i-plus"/></svg></button>
+  <button class="credit" id="creditChip" hidden aria-label="Saldo kredit, isi kredit" title="Isi kredit" data-la="Saldo kredit, isi kredit|Credit balance, top up" data-lt="Isi kredit|Top up credits"><svg class="i i-sm"><use href="#i-coins"/></svg><b id="creditValue">0</b><span class="hide-sm" data-l="kredit|credits">kredit</span><svg class="i i-sm plus"><use href="#i-plus"/></svg></button>
+  <button class="lang-btn" id="langBtn" type="button"></button>
   <button class="ibtn" id="themeBtn" aria-label="Mode terang"><svg class="i" id="themeIcon"><use href="#i-sun"/></svg></button>
   <span class="auth-only user" id="userBox" hidden><svg class="i i-sm"><use href="#i-user"/></svg><span id="userName"></span></span>
-  <button class="ibtn auth-only" id="logoutBtn" hidden aria-label="Keluar" title="Keluar"><svg class="i"><use href="#i-logout"/></svg></button>
-  <button class="btn btn-secondary guest-only" id="loginBtn">Masuk</button>
-  <button class="btn btn-primary guest-only hide-sm" id="signupBtn">Daftar gratis</button>
+  <button class="ibtn auth-only" id="logoutBtn" hidden aria-label="Keluar" title="Keluar" data-la="Keluar|Sign out" data-lt="Keluar|Sign out"><svg class="i"><use href="#i-logout"/></svg></button>
+  <button class="btn btn-secondary guest-only" id="loginBtn" data-l="Masuk|Sign in">Masuk</button>
+  <button class="btn btn-primary guest-only hide-sm" id="signupBtn" data-l="Daftar gratis|Sign up free">Daftar gratis</button>
 </header>
 
 <div id="view"></div>

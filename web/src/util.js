@@ -1,11 +1,12 @@
+import { L, locale } from './i18n.js';
 export const $ = (id) => document.getElementById(id);
 export const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[c]);
-export const rupiah = (n) => 'Rp' + Number(n).toLocaleString('id-ID');
-export const num = (n) => Number(n || 0).toLocaleString('id-ID');
+export const rupiah = (n) => 'Rp' + Number(n).toLocaleString(locale());
+export const num = (n) => Number(n || 0).toLocaleString(locale());
 export const uuid = () => (crypto?.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2));
 export const notice = (msg, type = 'ok') => (msg ? `<div class="notice ${type}" role="status">${icon(type === 'ok' ? 'ok' : type === 'error' ? 'alert' : 'tri')}<span>${msg}</span></div>` : '');
 export const icon = (name, cls = 'i') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-export const fmtDate = (d, tz = 'Asia/Jakarta') => new Date(d).toLocaleString('id-ID', { timeZone: tz, dateStyle: 'medium', timeStyle: 'short' });
+export const fmtDate = (d, tz = 'Asia/Jakarta') => new Date(d).toLocaleString(locale(), { timeZone: tz, dateStyle: 'medium', timeStyle: 'short' });
 
 let toastTimer;
 export function toast(msg, type = 'ok') {
@@ -37,11 +38,11 @@ export function closeModal() {
 }
 
 // confirm dialog built into the page (no window.confirm)
-export function confirmBox({ title, body, okLabel = 'Lanjut', danger = false, typeToConfirm = '' }) {
+export function confirmBox({ title, body, okLabel = L('Lanjut', 'Continue'), danger = false, typeToConfirm = '' }) {
   return new Promise((resolve) => {
     openModal(`<h3>${esc(title)}</h3><p class="muted">${body}</p>
-      ${typeToConfirm ? `<div class="field"><label for="cfType">Ketik <b>${esc(typeToConfirm)}</b> untuk melanjutkan</label><input id="cfType" autocomplete="off"></div>` : ''}
-      <div class="modal-actions"><button class="btn btn-quiet" data-close>Batal</button><button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="cfOk"${typeToConfirm ? ' disabled' : ''}>${esc(okLabel)}</button></div>`);
+      ${typeToConfirm ? `<div class="field"><label for="cfType">${L('Ketik', 'Type')} <b>${esc(typeToConfirm)}</b> ${L('untuk melanjutkan', 'to continue')}</label><input id="cfType" autocomplete="off"></div>` : ''}
+      <div class="modal-actions"><button class="btn btn-quiet" data-close>${L('Batal', 'Cancel')}</button><button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" id="cfOk"${typeToConfirm ? ' disabled' : ''}>${esc(okLabel)}</button></div>`);
     const ok = $('cfOk'), inp = $('cfType');
     if (inp) inp.oninput = () => (ok.disabled = inp.value !== typeToConfirm);
     let done = false;
