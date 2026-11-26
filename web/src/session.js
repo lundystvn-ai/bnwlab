@@ -349,6 +349,7 @@ async function showQr(data) {
     <h3>${L('Bayar', 'Pay')} ${rupiah(data.harga)}</h3>
     <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${data.kredit} ${L('kredit', 'credits')} · ${L('kode', 'code')} <span class="mono">${ref}</span></p>
     ${data.sandbox ? notice(L('Mode uji coba: tidak bisa dibayar dengan uang sungguhan.', 'Test mode: cannot be paid with real money.'), 'warn') : ''}
+    ${data.sandbox && data.qr_url ? `<div class="va-open"><span class="small">${L('Untuk simulator Midtrans: salin link gambar QR, lalu tempel di QRIS Simulator.', 'For the Midtrans simulator: copy the QR image link and paste it into the QRIS Simulator.')}</span><button class="btn btn-secondary btn-sm" id="tpQrUrl">${L('Salin link QR', 'Copy QR link')}</button></div>` : ''}
     <div class="qris-box"><div class="qris">${svg}</div>
       <div class="qris-meta"><b>${esc(merchantName(data.qr_string) || 'BNW Lab')}</b><span class="mono">${rupiah(data.harga)}</span></div></div>
     <ol class="qris-steps small">
@@ -363,6 +364,8 @@ async function showQr(data) {
     const ms = until - Date.now(); if (ms <= 0) return L('kedaluwarsa', 'expired');
     return `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
   };
+  const qrBtn = $('tpQrUrl');
+  if (qrBtn) qrBtn.onclick = async () => { try { await navigator.clipboard.writeText(data.qr_url); qrBtn.textContent = L('Tersalin', 'Copied'); } catch { prompt('Link QR', data.qr_url); } };
   const stop = watchPayment(data, (until) => L(`Menunggu pembayaran… berlaku ${left(until)}`, `Waiting for payment… valid for ${left(until)}`));
   $('tpCancel').onclick = async () => { stop(); await db.rpc('cancel_topup', { p_id: data.id }); closeModal(); };
 }
