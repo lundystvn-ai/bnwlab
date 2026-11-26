@@ -313,3 +313,4 @@ td .row{gap:6px;flex-wrap:nowrap}
 .help-list{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:var(--text-sm);color:var(--color-text-muted)}
 .help-list b{color:var(--color-text)}
 @media (max-width:860px){.support{grid-template-columns:1fr}}
+.price .save{color:var(--color-success)}

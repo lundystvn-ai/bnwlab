@@ -49,8 +49,8 @@ export function renderLanding(view) {
 
     <section class="section alt" id="harga">
       <div class="wrap">
-        <h2>Harga sederhana: bayar sesuai pemakaian</h2>
-        <p class="sub">Unduh hasil Raster/Knockout = 3 kredit (sekitar Rp1.500–Rp2.400). Upscale = 1 kredit per gambar. Makin besar paket, makin murah per kredit. Kredit tidak kedaluwarsa.</p>
+        <h2>Desain siap cetak mulai Rp1.500</h2>
+        <p class="sub">Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: Raster/Knockout 3 kredit, Upscale 1 kredit. Kredit tidak pernah hangus, dan paket Studio hemat sampai 38% per kredit.</p>
         <div class="prices" id="prices">${pricing()}</div>
       </div>
     </section>
@@ -74,13 +74,20 @@ export function renderLanding(view) {
 
 const faq = (q, a) => `<details><summary>${esc(q)}${icon('chev')}</summary><p>${esc(a)}</p></details>`;
 
+// Discount per credit compared with the smallest package.
+const save = (p) => {
+  const base = Math.max(...state.packages.map((x) => x.harga / x.kredit));
+  const pct = Math.round((1 - p.harga / p.kredit / base) * 100);
+  return pct >= 5 ? pct : 0;
+};
+
 export function pricing() {
   return state.packages.map((p) => `
     <div class="card price${p.populer ? ' pop' : ''}">
       <div class="row"><b>${esc(p.nama)}</b>${p.populer ? '<span class="badge b-accent" style="margin-left:auto">Terlaris</span>' : ''}</div>
       <div class="amt">${rupiah(p.harga)}</div>
-      <div class="muted small">${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit</div>
-      <ul><li>${icon('check')}${esc(p.catatan || 'Untuk semua alat')}</li><li>${icon('check')}Kredit tidak hangus</li></ul>
+      <div class="muted small">${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit${save(p) ? ` · <b class="save">hemat ${save(p)}%</b>` : ''}</div>
+      <ul><li>${icon('check')}<span><b>± ${Math.floor(p.kredit / 3)} desain</b> Raster/Knockout <span class="muted">atau ${p.kredit} upscale</span></span></li><li>${icon('check')}${esc(p.catatan || 'Untuk semua alat')}</li><li>${icon('check')}Kredit tidak hangus</li></ul>
       <button class="btn ${p.populer ? 'btn-primary' : 'btn-secondary'} btn-lg" data-topup>Pilih ${esc(p.nama)}</button>
     </div>`).join('');
 }
