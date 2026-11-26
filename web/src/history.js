@@ -5,16 +5,17 @@ import { $, esc, icon, notice, fmtDate, num, confirmBox, toast } from './util.js
 import { state, isAdmin, isManager, regionId, regionTz, regionName } from './session.js';
 import { OPERATION_LABELS } from './engine.js';
 
-export function mount(host) {
+export function mount(host, opts = {}) {
   let alive = true, busy = false;
+  const [open, close] = opts.embedded ? ['<div>', '</div>'] : ['<div class="page"><div class="page-in">', '</div></div>'];
   host.innerHTML = `
-  <div class="page"><div class="page-in">
-    <div class="page-head"><div><h1>Riwayat Knockout &amp; Raster</h1><p>Tercatat otomatis saat PNG diunduh. Gambar asli dan hasil tidak disimpan.</p></div>
+  ${open}
+    <div class="page-head"><div>${opts.embedded ? '<h2 style="margin:0">Riwayat unduhan Knockout &amp; Raster</h2>' : '<h1>Riwayat Knockout &amp; Raster</h1>'}<p>Semua unduhan PNG dari semua pengguna. Tercatat otomatis saat PNG diunduh; gambar tidak disimpan.</p></div>
       <div class="row"><button class="btn btn-secondary" id="hRefresh">${icon('refresh', 'i i-sm')}Muat ulang</button>${isAdmin() ? `<button class="btn btn-danger" id="hDelAll">${icon('trash', 'i i-sm')}Hapus semua</button>` : ''}</div></div>
     <div id="hNotice" aria-live="polite"></div>
     <div id="hList"><div class="empty">Memuat…</div></div>
     <p class="xs subtle" style="margin-top:10px">Riwayat upscale ada di halaman <a href="#upscale">Upscale</a>.</p>
-  </div></div>`;
+  ${close}`;
   const say = (m, t = 'ok') => ($('hNotice').innerHTML = m ? notice(m, t) : '');
   const lock = (on) => { busy = on; host.querySelectorAll('button').forEach((b) => (b.disabled = on)); };
 

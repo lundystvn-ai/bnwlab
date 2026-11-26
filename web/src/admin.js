@@ -14,11 +14,12 @@ export function mount(host) {
   const tabFromHash = () => (location.hash.split('/')[1] || 'ringkasan');
   host.innerHTML = `
   <div class="page"><div class="page-in">
-    <div class="page-head"><div><h1>Admin</h1><p>Konfirmasi pembayaran, kelola pengguna &amp; kredit, QRIS, dan akun BigJPG.</p></div></div>
+    <div class="page-head"><div><h1>Admin</h1><p>Konfirmasi pembayaran, kelola pengguna &amp; kredit, riwayat unduhan, QRIS, dan akun BigJPG.</p></div></div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="ringkasan">Ringkasan</button>
       <button role="tab" data-tab="pembayaran">Pembayaran <span class="count" id="tabCount" hidden></span></button>
       <button role="tab" data-tab="pengguna">Pengguna</button>
+      <button role="tab" data-tab="unduhan">Riwayat unduhan</button>
       <button role="tab" data-tab="qris">QRIS &amp; kontak</button>
       <button role="tab" data-tab="koneksi">Akun BigJPG</button>
     </nav>
@@ -33,6 +34,7 @@ export function mount(host) {
     if (tab === 'pembayaran') return payments();
     if (tab === 'pengguna') return users();
     if (tab === 'qris') return qris();
+    if (tab === 'unduhan') { const m = await import('./history.js'); const box = document.createElement('div'); body().replaceChildren(box); settingsUnmount = m.mount(box, { embedded: true }) || null; return; }
     if (tab === 'koneksi') { const m = await import('./settings.js'); const box = document.createElement('div'); body().replaceChildren(box); settingsUnmount = m.mount(box, { embedded: true }) || null; }
   }
   host.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { history.replaceState(null, '', '#admin/' + b.dataset.tab); show(b.dataset.tab); }));
@@ -239,7 +241,7 @@ export function mount(host) {
     };
   }
 
-  const first = ['ringkasan', 'pembayaran', 'pengguna', 'qris', 'koneksi'].includes(tabFromHash()) ? tabFromHash() : 'ringkasan';
+  const first = ['ringkasan', 'pembayaran', 'pengguna', 'unduhan', 'qris', 'koneksi'].includes(tabFromHash()) ? tabFromHash() : 'ringkasan';
   show(first);
   badge();
   return () => { alive = false; settingsUnmount?.(); };
