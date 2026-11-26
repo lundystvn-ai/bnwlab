@@ -428,6 +428,8 @@ canvas{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .pay-qris{display:flex;flex-direction:column;align-items:stretch;gap:6px;width:100%;padding:12px 14px;text-align:left;font:inherit;color:inherit;cursor:pointer;border:1.5px solid var(--color-accent);border-radius:var(--radius-md);background:var(--color-surface-2);transition:background var(--motion-fast)}
 .pay-qris:hover{background:var(--color-accent-soft)}
 .pay-qris[disabled]{opacity:.6;pointer-events:none}
+.pay-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.pay-free{color:var(--color-success);font-weight:600}
 .pay-qris-cta{margin-top:4px;width:100%;justify-content:center;pointer-events:none}
 .pay-va{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid var(--color-border);border-radius:var(--radius-md)}
 .bank-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:4px}

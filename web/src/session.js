@@ -185,7 +185,7 @@ export async function loadSettings() {
 
 export async function topupDialog(reason = '', opts = {}) {
   if (!state.user) { authDialog('daftar', '', () => topupDialog(reason, opts)); return; }
-  const mine = await db.from('payments').select('id,package_id,kredit,jumlah,status,claimed_at,created_at,provider,pay_method,va_bank,va_number,biller_code,expires_at').eq('user_id', state.user.id).order('created_at', { ascending: false }).limit(5);
+  const mine = await db.from('payments').select('id,package_id,kredit,jumlah,biaya,status,claimed_at,created_at,provider,pay_method,va_bank,va_number,biller_code,expires_at').eq('user_id', state.user.id).order('created_at', { ascending: false }).limit(5);
   const waiting = (mine.data || []).filter((p) => p.status === 'pending' && p.claimed_at);
   const openVa = (mine.data || []).filter((p) => p.status === 'pending' && p.pay_method === 'va' && p.va_number && new Date(p.expires_at) > new Date());
   openModal(`
@@ -193,7 +193,7 @@ export async function topupDialog(reason = '', opts = {}) {
     ${reason ? `<p class="muted">${esc(reason)}</p>` : ''}
     <div class="wallet-now">${L(`Saldo sekarang <b class="mono">${state.credits}</b> kredit`, `Current balance <b class="mono">${state.credits}</b> credits`)}</div>
     ${waiting.length ? notice(L(`${waiting.length} pembayaran menunggu konfirmasi admin (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Kredit masuk otomatis setelah dicek.`, `${waiting.length} payment(s) waiting for admin confirmation (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Credits are added once checked.`), 'warn') : ''}
-    ${openVa.map((p) => `<div class="va-open"><span class="small">${L(`Transfer belum selesai: <b>${rupiah(p.jumlah)}</b> ke ${esc(bankName(p.va_bank))} VA`, `Unfinished transfer: <b>${rupiah(p.jumlah)}</b> to ${esc(bankName(p.va_bank))} VA`)}</span><button class="btn btn-secondary btn-sm" data-va="${esc(p.id)}">${L('Lihat nomor', 'Show number')}</button></div>`).join('')}
+    ${openVa.map((p) => `<div class="va-open"><span class="small">${L(`Transfer belum selesai: <b>${rupiah(p.jumlah + (p.biaya || 0))}</b> ke ${esc(bankName(p.va_bank))} VA`, `Unfinished transfer: <b>${rupiah(p.jumlah + (p.biaya || 0))}</b> to ${esc(bankName(p.va_bank))} VA`)}</span><button class="btn btn-secondary btn-sm" data-va="${esc(p.id)}">${L('Lihat nomor', 'Show number')}</button></div>`).join('')}
     <div class="pack-list" role="list">${state.packages.map((p) => `
       <button class="pack pack-btn${p.populer ? ' pop' : ''}" data-pack="${esc(p.id)}" role="listitem">
         <span><span class="pack-name">${esc(pkgName(p))}${p.populer ? ` <span class="badge b-accent">${L('Terlaris', 'Most popular')}</span>` : ''}</span>
@@ -206,7 +206,7 @@ export async function topupDialog(reason = '', opts = {}) {
   document.querySelectorAll('[data-va]').forEach((b) => (b.onclick = () => {
     const p = openVa.find((x) => x.id === b.dataset.va); if (!p) return;
     const pk = state.packages.find((x) => x.id === p.package_id) || { nama: p.package_id };
-    showVa({ id: p.id, method: 'va', bank: p.va_bank, va_number: p.va_number, biller_code: p.biller_code, harga: p.jumlah, kredit: p.kredit, nama: pk.nama, expires_at: p.expires_at, sandbox: false });
+    showVa({ id: p.id, method: 'va', bank: p.va_bank, va_number: p.va_number, biller_code: p.biller_code, harga: p.jumlah, biaya: p.biaya || 0, kredit: p.kredit, nama: pk.nama, expires_at: p.expires_at, sandbox: false });
   }));
 }
 
@@ -263,14 +263,14 @@ async function startTopup(packId, btn, opts = {}) {
 }
 
 // ---------- automatic payments through Midtrans: credits arrive by themselves after paying ----------
-const VA_MIN = 100000;   // bank transfer is offered for packs of Rp100.000 and up
+const VA_FEE = 5500;     // shown to the customer; the server decides the real fee
 const BANKS = [['bca', 'BCA'], ['bni', 'BNI'], ['bri', 'BRI'], ['mandiri', 'Mandiri'], ['permata', 'Permata'], ['cimb', 'CIMB Niaga']];
 const bankName = (b) => (BANKS.find((x) => x[0] === b) || [b, String(b || '').toUpperCase()])[1];
 const fmtUntil = (d) => new Date(d).toLocaleString(L('id-ID', 'en-GB'), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 async function midtransTopup(packId, btn) {
   const pack = state.packages.find((x) => x.id === packId);
-  if (pack && pack.harga >= VA_MIN) { chooseMethod(pack); return; }
+  if (pack) { chooseMethod(pack); return; }
   btn.disabled = true;
   try { await createMidtrans(packId, 'qris'); } finally { if (btn.isConnected) btn.disabled = false; }
 }
@@ -281,10 +281,12 @@ function chooseMethod(pack) {
     <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${pack.kredit} ${L('kredit', 'credits')} · <b>${rupiah(pack.harga)}</b></p>
     <div class="pay-methods">
       <button class="pay-qris" data-method="qris">
-        <span class="pack-name">QRIS <span class="badge b-success">${L('Disarankan', 'Recommended')}</span></span>
+        <span class="pay-head"><span class="pack-name">QRIS <span class="badge b-success">${L('Disarankan', 'Recommended')}</span></span><b class="mono">${rupiah(pack.harga)}</b></span>
         <span class="muted small">${L('Paling cepat: kredit masuk beberapa detik setelah bayar. Bisa dari GoPay, OVO, DANA, ShopeePay, atau m-banking apa pun.', 'Fastest: credits arrive seconds after you pay. Works with GoPay, OVO, DANA, ShopeePay or any banking app.')}</span>
+        <span class="xs pay-free">${L('Tanpa biaya tambahan', 'No extra fee')}</span>
         <span class="btn btn-primary pay-qris-cta">${L('Bayar dengan QRIS', 'Pay with QRIS')}</span></button>
-      <div class="pay-va"><span class="pack-name">${L('Atau transfer bank (Virtual Account)', 'Or bank transfer (Virtual Account)')}</span>
+      <div class="pay-va"><span class="pay-head"><span class="pack-name">${L('Atau transfer bank (Virtual Account)', 'Or bank transfer (Virtual Account)')}</span><b class="mono">${rupiah(pack.harga + VA_FEE)}</b></span>
+        <span class="xs muted">${L(`Termasuk biaya transfer bank ${rupiah(VA_FEE)}`, `Includes a ${rupiah(VA_FEE)} bank transfer fee`)}</span>
         <span class="muted small">${L('Dari m-banking, internet banking, atau ATM. Berlaku 24 jam. Kredit masuk setelah bank mengonfirmasi, biasanya beberapa menit.', 'From mobile banking, internet banking or an ATM. Valid for 24 hours. Credits arrive once the bank confirms, usually within a few minutes.')}</span>
         <div class="bank-grid">${BANKS.map(([id, name]) => `<button class="btn btn-secondary" data-bank="${id}">${name}</button>`).join('')}</div></div>
     </div>
@@ -376,21 +378,23 @@ function showVa(data) {
   const ref = String(data.id).slice(0, 8).toUpperCase();
   const mandiri = data.bank === 'mandiri';
   const pack = state.packages.find((x) => x.nama === data.nama) || { nama: data.nama };
+  const fee = Number(data.biaya || 0), tot = Number(data.total || (data.harga + fee));
   const group = (n) => String(n).replace(/(\d{4})(?=\d)/g, '$1 ');
   openModal(`
-    <h3>${L('Transfer', 'Transfer')} ${rupiah(data.harga)}</h3>
+    <h3>${L('Transfer', 'Transfer')} ${rupiah(tot)}</h3>
     <p class="muted">${L('Paket', 'Pack')} <b>${esc(pkgName(pack))}</b> · ${data.kredit} ${L('kredit', 'credits')} · ${L('kode', 'code')} <span class="mono">${ref}</span></p>
     ${data.sandbox ? notice(L('Mode uji coba: tidak bisa dibayar dengan uang sungguhan.', 'Test mode: cannot be paid with real money.'), 'warn') : ''}
     <div class="va-box">
       <span class="muted small">${mandiri ? 'Mandiri Bill Payment' : `${esc(bankName(data.bank))} Virtual Account`}</span>
       ${mandiri ? `<div class="row"><span class="small muted" style="width:120px">${L('Kode perusahaan', 'Company code')}</span><b class="mono">${esc(data.biller_code)}</b></div>` : ''}
       <div class="row"><span class="va-num mono" id="vaNum">${esc(group(data.va_number))}</span><button class="btn btn-secondary btn-sm" id="vaCopy">${L('Salin', 'Copy')}</button></div>
-      <div class="row"><span class="small muted">${L('Jumlah transfer', 'Amount')}</span><span class="grow"></span><b class="mono">${rupiah(data.harga)}</b></div>
+      <div class="row"><span class="small muted">${L('Jumlah transfer', 'Amount')}</span><span class="grow"></span><b class="mono">${rupiah(tot)}</b></div>
+      ${fee ? `<span class="xs muted">${L(`Harga paket ${rupiah(data.harga)} + biaya transfer bank ${rupiah(fee)}`, `Pack price ${rupiah(data.harga)} + bank transfer fee ${rupiah(fee)}`)}</span>` : ''}
     </div>
     <ol class="qris-steps small">
       ${mandiri
         ? `<li>${L(`Buka Livin' by Mandiri atau ATM Mandiri, pilih <b>Bayar → Multipayment</b>, lalu cari kode perusahaan <b>${esc(data.biller_code)}</b> (Midtrans).`, `Open Livin' by Mandiri or a Mandiri ATM, choose <b>Pay → Multipayment</b>, then search company code <b>${esc(data.biller_code)}</b> (Midtrans).`)}</li><li>${L('Masukkan kode bayar di atas, cek nominal, lalu bayar.', 'Enter the payment code above, check the amount, then pay.')}</li>`
-        : `<li>${L(`Buka m-banking, internet banking, atau ATM, pilih <b>Transfer → Virtual Account ${esc(bankName(data.bank))}</b>. Dari bank lain, pilih transfer antarbank ke ${esc(bankName(data.bank))} dengan nomor ini.`, `Open your mobile banking, internet banking or an ATM and choose <b>Transfer → ${esc(bankName(data.bank))} Virtual Account</b>. From another bank, use an interbank transfer to ${esc(bankName(data.bank))} with this number.`)}</li><li>${L(`Masukkan nomor di atas. Nominal <b>${rupiah(data.harga)}</b> akan muncul; pastikan sama, lalu bayar.`, `Enter the number above. The amount <b>${rupiah(data.harga)}</b> will show; check it matches, then pay.`)}</li>`}
+        : `<li>${L(`Buka m-banking, internet banking, atau ATM, pilih <b>Transfer → Virtual Account ${esc(bankName(data.bank))}</b>. Dari bank lain, pilih transfer antarbank ke ${esc(bankName(data.bank))} dengan nomor ini.`, `Open your mobile banking, internet banking or an ATM and choose <b>Transfer → ${esc(bankName(data.bank))} Virtual Account</b>. From another bank, use an interbank transfer to ${esc(bankName(data.bank))} with this number.`)}</li><li>${L(`Masukkan nomor di atas. Nominal <b>${rupiah(tot)}</b> akan muncul; pastikan sama, lalu bayar.`, `Enter the number above. The amount <b>${rupiah(tot)}</b> will show; check it matches, then pay.`)}</li>`}
       <li>${L('Kredit masuk otomatis setelah transfer diterima. Halaman ini boleh ditutup.', 'Credits are added automatically once the transfer arrives. You may close this page.')}</li>
     </ol>
     <div class="mt-live" id="tpLive" aria-live="polite"><span class="spin"></span><span id="tpLiveText"></span></div>
