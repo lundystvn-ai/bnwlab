@@ -32,7 +32,7 @@ async function render() {
   if (route === 'pengaturan') { history.replaceState(null, '', '#admin/koneksi'); route = 'admin'; }
   if (route === 'riwayat') { history.replaceState(null, '', '#kredit'); route = 'kredit'; }
   closeModal();
-  document.querySelectorAll('.menu a').forEach((a) => (a.dataset.route === route ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+  document.querySelectorAll('.menu a, .admin-link').forEach((a) => (a.dataset.route === route ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
 
   if (APP_ROUTES.includes(route)) {
     if (!state.user && !OPEN_ROUTES.includes(route)) { showLanding(); authDialog('masuk', '', () => render()); return; }
