@@ -13,7 +13,7 @@ export function renderLanding(view) {
           <button class="btn btn-primary btn-xl" data-cta>Buka editor</button>
           <a class="btn btn-secondary btn-xl" href="#harga" data-route="harga">Lihat harga</a>
         </div>
-        <p class="fine small muted">Akun baru dapat kredit gratis untuk mencoba. Pratinjau gratis, unduhan memakai kredit.</p>
+        <p class="fine small muted">Daftar dan langsung dapat <b>5 kredit gratis</b> untuk mencoba. Pratinjau gratis, unduhan memakai kredit.</p>
       </div>
       <div class="compare" id="heroCompare" aria-label="Contoh sebelum dan sesudah raster">
         <img class="before" src="/sample-before.jpg" alt="" draggable="false">

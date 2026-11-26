@@ -72,7 +72,7 @@ export function authDialog(mode = 'masuk', email = '', after) {
   openModal(`
     <div class="modal-logo"><img src="/logo-64.png" alt="BNW Lab" height="28"></div>
     <h3>${title}</h3>
-    ${daftar ? '<p class="muted">Akun baru dapat <b>kredit gratis</b> untuk mencoba.</p>' : ''}
+    ${daftar ? '<p class="muted">Akun baru langsung dapat <b>5 kredit gratis</b> untuk mencoba.</p>' : ''}
     ${lupa ? '<p class="muted">Masukkan email akun. Kami kirim kode untuk membuat atau mengganti password.</p>' : ''}
     <form id="pwForm" class="form">
       ${daftar ? '<div class="field"><label for="pwName">Nama</label><input id="pwName" required autocomplete="name" autofocus></div>' : ''}
