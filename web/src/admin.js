@@ -103,10 +103,12 @@ export function mount(host) {
       <div class="two">
         <div class="stack">
           <div class="row"><span class="lbl" style="width:110px">Status</span>${st.configured ? `<span class="badge b-success">Server Key tersimpan</span> <span class="xs mono muted">${esc(st.masked)}</span>` : '<span class="badge b-danger">Belum diisi</span>'}</div>
+          <div class="row"><span class="lbl" style="width:110px">Signature</span>${st.sig ? '<span class="badge b-success">Signature Secret Key tersimpan</span>' : '<span class="badge">Belum diisi</span>'}</div>
           <div class="row"><span class="lbl" style="width:110px">Mode</span><b>${esc(modeName)}</b></div>
           <form class="stack" id="mtForm">
             <div class="field"><label for="mtMode">Mode</label><select id="mtMode"><option value="sandbox"${st.mode !== 'production' ? ' selected' : ''}>Sandbox (uji coba, tanpa uang sungguhan)</option><option value="production"${st.mode === 'production' ? ' selected' : ''}>Production (pembayaran sungguhan)</option></select></div>
             <div class="field"><label for="mtKey">Server Key ${st.configured ? '<span class="muted">(kosongkan kalau tidak diganti)</span>' : ''}</label><input id="mtKey" type="password" autocomplete="off" spellcheck="false" placeholder="${st.mode === 'production' ? 'Mid-server-…' : 'SB-Mid-server-…'}"></div>
+            <div class="field"><label for="mtSig">Signature Secret Key ${st.sig ? '<span class="muted">(kosongkan kalau tidak diganti)</span>' : ''}</label><input id="mtSig" type="password" autocomplete="off" spellcheck="false" placeholder="Dari Access Keys → General Credentials"><span class="xs muted">Dipakai untuk memastikan kabar pembayaran benar dari Midtrans.</span></div>
             <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" type="submit">Simpan</button><button class="btn btn-secondary" type="button" id="mtTest"${st.configured ? '' : ' disabled'}>Tes koneksi</button><button class="btn btn-secondary" type="button" id="mtTry"${st.configured ? '' : ' disabled'}>Coba bayar (admin)</button></div>
             <p class="xs muted" style="margin:0">"Coba bayar" membuat QRIS sungguhan dari Midtrans untuk akun admin ini saja, walaupun pembeli masih memakai QRIS manual. Kredit dari uji coba masuk ke akun admin.</p>
           </form>
@@ -117,8 +119,9 @@ export function mount(host) {
             <div class="row"><input id="mtHook" readonly value="${esc(st.webhook)}" class="mono" style="flex:1;min-width:0"><button class="btn btn-secondary" type="button" id="mtCopy">${icon('link', 'i i-sm')}Salin</button></div></div>
           <ol class="qris-steps small" style="margin:0">
             <li>Masuk ke dashboard Midtrans, pilih lingkungan yang sama dengan mode di kiri (Sandbox atau Production).</li>
-            <li><b>Settings → Access Keys</b>: salin <b>Server Key</b>, tempel di kolom kiri, lalu Simpan dan Tes koneksi.</li>
-            <li><b>Settings → Configuration → Payment Notification URL</b>: tempel URL di atas, lalu simpan.</li>
+            <li><b>Settings → Access Keys → General Credentials → Generate server key</b>, dengan izin <b>Core API = Write</b>. Tempel key di kolom kiri.</li>
+            <li>Di halaman yang sama salin <b>Signature Secret Key</b>, tempel di kolom kiri, lalu Simpan dan Tes koneksi.</li>
+            <li><b>Settings → Payment → Payment Notification URL</b>: tempel URL di atas, lalu simpan.</li>
             <li>Setelah tes berhasil, nyalakan pembayaran otomatis di bawah.</li>
           </ol>
         </div>
@@ -133,7 +136,7 @@ export function mount(host) {
     $('mtForm').onsubmit = async (e) => {
       e.preventDefault();
       const btn = e.submitter; if (btn) btn.disabled = true;
-      try { const r = await invoke('midtrans', { action: 'save_config', mode: $('mtMode').value, server_key: $('mtKey').value.trim() }); toast(r.message); await midtransBox(); }
+      try { const r = await invoke('midtrans', { action: 'save_config', mode: $('mtMode').value, server_key: $('mtKey').value.trim(), signature_key: $('mtSig').value.trim() }); toast(r.message); await midtransBox(); }
       catch (err) { $('mtMsg').innerHTML = notice(esc(err.message), 'error'); if (btn) btn.disabled = false; }
     };
     $('mtTest').onclick = async () => {
