@@ -4,7 +4,7 @@ import { $, closeModal, toast } from './util.js';
 import { state, onSession, applySession, clearSession, signOut, authDialog, topupDialog, newPasswordDialog, loadPackages, loadSettings, refreshCredits, isAdmin } from './session.js';
 import { renderLanding, pricing } from './landing.js';
 
-const APP_ROUTES = ['editor', 'upscale', 'riwayat', 'admin'];
+const APP_ROUTES = ['editor', 'upscale', 'kredit', 'admin'];
 const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];
 const view = $('view');
 let current = null;       // current route name
@@ -26,6 +26,7 @@ export function go(route) {
 async function render() {
   let route = routeFromHash();
   if (route === 'pengaturan') { history.replaceState(null, '', '#admin/koneksi'); route = 'admin'; }
+  if (route === 'riwayat') { history.replaceState(null, '', '#kredit'); route = 'kredit'; }
   closeModal();
   document.querySelectorAll('.menu a').forEach((a) => (a.dataset.route === route ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
 
@@ -35,14 +36,14 @@ async function render() {
     if (current === route) return;
     unmount?.(); unmount = null;
     current = route;
-    view.innerHTML = appFrame(route);
+    view.innerHTML = appFrame();
     const host = $('appMain');
     const mod = route === 'editor' ? await import('./editor.js')
       : route === 'upscale' ? await import('./upscale.js')
-      : route === 'riwayat' ? await import('./history.js')
+      : route === 'kredit' ? await import('./credits.js')
       : await import('./admin.js');
     unmount = mod.mount(host) || null;
-    if (isAdmin()) db.rpc('admin_stats').then(({ data }) => { const c = $('railCount'); if (c && data?.waiting) { c.hidden = false; c.textContent = String(data.waiting); } });
+    if (isAdmin()) db.rpc('admin_stats').then(({ data }) => { const c = $('menuCount'); if (c && data?.waiting) { c.hidden = false; c.textContent = String(data.waiting); } });
     return;
   }
   showLanding();
@@ -54,18 +55,8 @@ function showLanding() {
   if (current !== 'landing') { unmount?.(); unmount = null; current = 'landing'; renderLanding(view); }
 }
 
-function appFrame(route) {
-  const t = (r, ic, label, extra = '') => `<a class="tool ${extra}" href="#${r}" ${route === r ? 'aria-current="page"' : ''} aria-label="${label}"><svg class="i"><use href="#i-${ic}"/></svg><span class="tip">${label}</span></a>`;
-  return `<div class="app">
-    <nav class="rail" aria-label="Alat">
-      ${t('editor', 'halftone', 'Knockout & Raster')}
-      ${t('upscale', 'expand', 'Upscale')}
-      <span class="sep"></span>
-      ${t('riwayat', 'history', 'Riwayat')}
-      ${isAdmin() ? `<a class="tool" href="#admin" ${route === 'admin' ? 'aria-current="page"' : ''} aria-label="Admin"><svg class="i"><use href="#i-shield"/></svg><span class="count" id="railCount" hidden></span><span class="tip">Admin</span></a>` : ''}
-    </nav>
-    <div id="appMain" class="app-main" style="min-height:0;display:grid"></div>
-  </div>`;
+function appFrame() {
+  return `<div class="app"><div id="appMain" class="app-main" style="min-height:0;display:grid"></div></div>`;
 }
 
 // ---------- header + global clicks ----------

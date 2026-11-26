@@ -85,7 +85,6 @@ export function mount(host) {
       <div id="tabHist" hidden style="padding:12px;display:flex;flex-direction:column;gap:8px">
         <div class="row"><span class="xs muted grow">Tercatat saat PNG diunduh. Gambar tidak disimpan.</span><button class="ibtn" id="histRefresh" aria-label="Muat ulang">${icon('refresh')}</button></div>
         <div id="histList"><div class="empty">Memuat…</div></div>
-        <a class="btn btn-secondary" href="#riwayat">Lihat semua riwayat</a>
       </div>
     </aside>
 

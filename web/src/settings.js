@@ -1,5 +1,5 @@
 // Admin settings: Supabase connection for this browser, and the BigJPG API key (stored server-side).
-import { invoke, validateConnection, testConnection } from './supa.js';
+import { invoke } from './supa.js';
 import { cfg, store, usingBrowserOverride } from './config.js';
 import { $, esc, icon, notice, num, toast, openModal, closeModal, confirmBox } from './util.js';
 import { isAdmin } from './session.js';
@@ -22,17 +22,7 @@ export function mount(host, opts = {}) {
         <div id="bjNotice"></div>
       </section>
 
-      <section class="card stack">
-        <div class="toolbar" style="margin:0"><div><h2>Koneksi Supabase</h2><p class="xs muted" style="margin:2px 0 0">Dari Supabase Dashboard → Settings → API.</p></div><span class="badge b-success">Terhubung</span></div>
-        ${notice(`Memakai proyek <b>${esc(cfg.supabaseUrl)}</b>${usingBrowserOverride ? ' (pengaturan browser ini)' : ' (bawaan situs)'}`, 'ok')}
-        <form id="sbForm" class="form">
-          <div class="field"><label for="sbUrl">Project URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co" value="${esc(store.get('cfg')?.supabaseUrl || '')}" autocomplete="off"></div>
-          <div class="field"><label for="sbKey">Anon / publishable key</label><input id="sbKey" placeholder="sb_publishable_… atau eyJ…" value="${esc(store.get('cfg')?.supabaseAnonKey || '')}" autocomplete="off"></div>
-          <p class="xs muted" style="margin:0">Jangan tempel kunci <b>service_role</b> / <b>secret</b>; kunci itu ditolak.</p>
-          <div class="row" style="flex-wrap:wrap"><button class="btn btn-secondary btn-lg" type="submit" id="sbTest">Uji koneksi</button><button class="btn btn-secondary btn-lg" type="button" id="sbUse" disabled>Pakai di browser ini</button>${usingBrowserOverride ? '<button class="btn btn-danger btn-lg" type="button" id="sbClear">Hapus pengaturan browser</button>' : ''}</div>
-        </form>
-        <div id="sbResult" class="check-list" aria-live="polite"></div>
-      </section>
+      ${usingBrowserOverride ? `<section class="card stack">${notice(`Browser ini memakai proyek Supabase lain: <b>${esc(cfg.supabaseUrl)}</b>.`, 'warn')}<div class="row"><button class="btn btn-danger" type="button" id="sbClear">Kembali ke bawaan situs</button></div></section>` : ''}
     </div>` + (opts.embedded ? '' : '</div></div>');
 
   async function bjLoad() {
@@ -87,18 +77,5 @@ export function mount(host, opts = {}) {
   };
   bjLoad();
 
-  let tested = null;
-  $('sbForm').onsubmit = async (e) => {
-    e.preventDefault(); tested = null; $('sbUse').disabled = true;
-    const v = validateConnection($('sbUrl').value, $('sbKey').value);
-    if (v.error) { $('sbResult').innerHTML = notice(esc(v.error), 'error'); return; }
-    const b = $('sbTest'); b.disabled = true; b.textContent = 'Menguji…';
-    let res;
-    try { res = await testConnection(v.url, v.key); } catch (err) { res = [{ ok: false, label: 'Gagal memuat pustaka Supabase', hint: err.message }]; }
-    b.disabled = false; b.textContent = 'Uji koneksi';
-    $('sbResult').innerHTML = res.map((x) => notice(`<b>${esc(x.label)}</b>${x.hint ? '<br>' + esc(x.hint) : ''}`, x.ok ? 'ok' : 'warn')).join('');
-    if (res[0]?.ok) { tested = v; $('sbUse').disabled = false; }
-  };
-  $('sbUse').onclick = () => { if (!tested) return; store.set('cfg', { supabaseUrl: tested.url, supabaseAnonKey: tested.key }); location.reload(); };
   $('sbClear')?.addEventListener('click', () => { store.set('cfg', null); location.reload(); });
 }

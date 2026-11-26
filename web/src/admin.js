@@ -14,13 +14,13 @@ export function mount(host) {
   const tabFromHash = () => (location.hash.split('/')[1] || 'ringkasan');
   host.innerHTML = `
   <div class="page"><div class="page-in">
-    <div class="page-head"><div><h1>Admin</h1><p>Konfirmasi pembayaran, kelola pengguna &amp; kredit, QRIS, dan koneksi.</p></div></div>
+    <div class="page-head"><div><h1>Admin</h1><p>Konfirmasi pembayaran, kelola pengguna &amp; kredit, QRIS, dan akun BigJPG.</p></div></div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="ringkasan">Ringkasan</button>
       <button role="tab" data-tab="pembayaran">Pembayaran <span class="count" id="tabCount" hidden></span></button>
       <button role="tab" data-tab="pengguna">Pengguna</button>
       <button role="tab" data-tab="qris">QRIS &amp; kontak</button>
-      <button role="tab" data-tab="koneksi">API &amp; koneksi</button>
+      <button role="tab" data-tab="koneksi">Akun BigJPG</button>
     </nav>
     <div id="admBody"></div>
   </div></div>`;
@@ -41,7 +41,7 @@ export function mount(host) {
     const { data } = await db.rpc('admin_stats');
     const n = data?.waiting || 0, c = $('tabCount');
     if (c) { c.hidden = !n; c.textContent = String(n); }
-    const r = document.getElementById('railCount'); if (r) { r.hidden = !n; r.textContent = String(n); }
+    const r = document.getElementById('menuCount'); if (r) { r.hidden = !n; r.textContent = String(n); }
     return data;
   }
 
@@ -74,7 +74,7 @@ export function mount(host) {
       const r = await invoke('bigjpg-upscale', { action: 'list_keys' });
       if (!alive || !box.isConnected || !r.keys?.length) return;
       const pct = r.total_quota ? Math.round((r.total_used / r.total_quota) * 100) : 0;
-      box.innerHTML = `<div class="card"><div class="progress ${pct >= 90 ? 'bad' : pct >= 80 ? 'warn' : 'ok'}"><div class="head"><span>Kuota upscale BigJPG bulan ini · ${r.keys.filter((k) => k.active).length} akun</span><b class="num">${num(r.total_used)} / ${num(r.total_quota)}</b></div><div class="bar"><i style="width:${Math.min(100, pct)}%"></i></div><small>Sisa ${num(r.remaining)}${pct >= 80 ? ' · hampir habis: tambah akun di tab API &amp; koneksi' : ''}</small></div></div>`;
+      box.innerHTML = `<div class="card"><div class="progress ${pct >= 90 ? 'bad' : pct >= 80 ? 'warn' : 'ok'}"><div class="head"><span>Kuota upscale BigJPG bulan ini · ${r.keys.filter((k) => k.active).length} akun</span><b class="num">${num(r.total_used)} / ${num(r.total_quota)}</b></div><div class="bar"><i style="width:${Math.min(100, pct)}%"></i></div><small>Sisa ${num(r.remaining)}${pct >= 80 ? ' · hampir habis: tambah akun di tab Akun BigJPG' : ''}</small></div></div>`;
     } catch {}
   }
 
