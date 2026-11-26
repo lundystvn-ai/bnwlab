@@ -1,6 +1,7 @@
 // Edge Function: bigjpg-upscale
-// Aksi: costs | config_status | save_config | start | status
-// API key BigJPG TIDAK pernah dikirim ke browser. Prioritas: secret env BIGJPG_API_KEY, lalu tabel app_secrets.
+// Aksi: costs | config_status | save_config | start | status | list_keys | add_key | update_key | remove_key
+// API key BigJPG TIDAK pernah dikirim ke browser. Beberapa akun BigJPG berbayar dipakai bergantian (tabel bigjpg_keys);
+// kalau satu akun kena kuota bulanan (month_limit), otomatis pindah ke akun berikutnya.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const BIGJPG = 'https://bigjpg.com';
@@ -56,6 +57,14 @@ Deno.serve(async (req) => {
         return json(await start(admin, user.id, body));
       case 'status':
         return json(await status(admin, user.id, body));
+      case 'list_keys':
+        await requireAdmin(admin, user.id); return json(await listKeysForAdmin(admin));
+      case 'add_key':
+        await requireAdmin(admin, user.id); return json(await addKey(admin, body));
+      case 'update_key':
+        await requireAdmin(admin, user.id); return json(await updateKey(admin, body));
+      case 'remove_key':
+        await requireAdmin(admin, user.id); return json(await removeKey(admin, body));
       default:
         throw new HttpError(400, 'Aksi tidak dikenal.');
     }
@@ -74,19 +83,118 @@ async function isAdmin(admin: Admin, userId: string) {
   return data?.user_role === 'admin';
 }
 
-async function getApiKey(admin: Admin): Promise<{ key: string; source: 'env' | 'db' } | null> {
+type PoolKey = { id: string | null; label: string; key: string; quota: number; active: boolean; exhausted_month: string | null; sort: number };
+
+const monthKey = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit' }).format(new Date()).slice(0, 7);
+const monthStart = () => `${monthKey()}-01T00:00:00+07:00`;
+
+async function requireAdmin(admin: Admin, userId: string) {
+  if (!(await isAdmin(admin, userId))) throw new HttpError(403, 'Hanya admin.');
+}
+
+// All accounts: the pool table, plus the server secret / legacy single key as a fallback.
+async function allKeys(admin: Admin): Promise<PoolKey[]> {
+  const out: PoolKey[] = [];
+  const { data } = await admin.from('bigjpg_keys').select('id,label,api_key,monthly_quota,active,exhausted_month,sort').order('sort').order('created_at');
+  for (const r of data ?? []) out.push({ id: r.id, label: r.label, key: r.api_key, quota: r.monthly_quota, active: r.active, exhausted_month: r.exhausted_month, sort: r.sort });
   const env = Deno.env.get('BIGJPG_API_KEY');
-  if (env) return { key: env, source: 'env' };
-  const { data } = await admin.from('app_secrets').select('value').eq('key', 'bigjpg_api_key').maybeSingle();
-  return data?.value ? { key: data.value, source: 'db' } : null;
+  if (env && !out.some((k) => k.key === env)) out.push({ id: null, label: 'Secret server', key: env, quota: 2000, active: true, exhausted_month: null, sort: 999 });
+  if (!out.length) {
+    const { data: s } = await admin.from('app_secrets').select('value').eq('key', 'bigjpg_api_key').maybeSingle();
+    if (s?.value) out.push({ id: null, label: 'Akun utama', key: s.value, quota: 2000, active: true, exhausted_month: null, sort: 0 });
+  }
+  return out;
+}
+
+// Upscales started this month per account (rows that reached BigJPG).
+async function usageThisMonth(admin: Admin): Promise<Map<string, number>> {
+  const used = new Map<string, number>();
+  const { data } = await admin.from('riwayat_bigjpg').select('key_id').not('bigjpg_tid', 'is', null).gte('created_at', monthStart()).limit(100000);
+  for (const r of data ?? []) { const k = r.key_id ?? 'null'; used.set(k, (used.get(k) ?? 0) + 1); }
+  return used;
+}
+
+async function usableKeys(admin: Admin): Promise<PoolKey[]> {
+  const [keys, used] = await Promise.all([allKeys(admin), usageThisMonth(admin)]);
+  const m = monthKey();
+  return keys.filter((k) => k.active && k.exhausted_month !== m && (used.get(k.id ?? 'null') ?? 0) < k.quota);
+}
+
+async function getApiKey(admin: Admin): Promise<{ key: string; source: 'env' | 'db' } | null> {
+  const k = (await usableKeys(admin))[0] ?? (await allKeys(admin))[0];
+  return k ? { key: k.key, source: k.label === 'Secret server' ? 'env' : 'db' } : null;
+}
+
+async function markExhausted(admin: Admin, k: PoolKey) {
+  if (k.id) await admin.from('bigjpg_keys').update({ exhausted_month: monthKey(), updated_at: new Date().toISOString() }).eq('id', k.id);
+}
+
+async function listKeysForAdmin(admin: Admin) {
+  const [keys, used] = await Promise.all([allKeys(admin), usageThisMonth(admin)]);
+  const m = monthKey();
+  const rows = keys.map((k) => {
+    const u = used.get(k.id ?? 'null') ?? 0;
+    return { id: k.id, label: k.label, masked: mask(k.key), monthly_quota: k.quota, active: k.active, used: u,
+      exhausted: k.exhausted_month === m || u >= k.quota, editable: !!k.id };
+  });
+  const usable = rows.filter((r) => r.active && !r.exhausted);
+  return { month: m, keys: rows,
+    total_quota: usable.reduce((a, r) => a + r.monthly_quota, 0) + rows.filter((r) => r.active && r.exhausted).reduce((a, r) => a + r.monthly_quota, 0),
+    total_used: rows.filter((r) => r.active).reduce((a, r) => a + Math.min(r.used, r.monthly_quota), 0),
+    remaining: usable.reduce((a, r) => a + Math.max(0, r.monthly_quota - r.used), 0) };
+}
+
+const cleanKey = (v: unknown) => {
+  const key = String(v ?? '').trim();
+  if (key.length < 8 || key.length > 200 || /\s/.test(key)) throw new HttpError(400, 'Format API key tidak valid.');
+  return key;
+};
+const cleanQuota = (v: unknown) => {
+  const q = Math.round(Number(v ?? 2000));
+  if (!Number.isFinite(q) || q < 1 || q > 1000000) throw new HttpError(400, 'Kuota per bulan tidak valid.');
+  return q;
+};
+
+async function addKey(admin: Admin, b: Record<string, unknown>) {
+  const key = cleanKey(b.api_key);
+  const label = String(b.label ?? '').trim().slice(0, 60) || 'Akun BigJPG';
+  const { count } = await admin.from('bigjpg_keys').select('id', { count: 'exact', head: true });
+  const { error } = await admin.from('bigjpg_keys').insert({ label, api_key: key, monthly_quota: cleanQuota(b.monthly_quota), sort: count ?? 0 });
+  if (error) throw new HttpError(400, /duplicate/i.test(error.message) ? 'API key ini sudah ada di daftar.' : 'Gagal menyimpan API key.');
+  return { message: `${label} ditambahkan.` };
+}
+
+async function updateKey(admin: Admin, b: Record<string, unknown>) {
+  const id = String(b.id ?? '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(400, 'ID akun tidak valid.');
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (b.label !== undefined) patch.label = String(b.label).trim().slice(0, 60) || 'Akun BigJPG';
+  if (b.monthly_quota !== undefined) patch.monthly_quota = cleanQuota(b.monthly_quota);
+  if (b.active !== undefined) patch.active = !!b.active;
+  if (b.reset_exhausted) patch.exhausted_month = null;
+  const { error } = await admin.from('bigjpg_keys').update(patch).eq('id', id);
+  if (error) throw new HttpError(400, 'Gagal mengubah akun.');
+  return { message: 'Akun diperbarui.' };
+}
+
+async function removeKey(admin: Admin, b: Record<string, unknown>) {
+  const id = String(b.id ?? '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(400, 'ID akun tidak valid.');
+  const { error } = await admin.from('bigjpg_keys').delete().eq('id', id);
+  if (error) throw new HttpError(400, 'Gagal menghapus akun.');
+  return { message: 'Akun dihapus.' };
 }
 
 const mask = (k: string) => (k.length <= 8 ? '••••' : k.slice(0, 4) + '••••' + k.slice(-4));
 
 async function configStatus(admin: Admin, userId: string) {
-  const found = await getApiKey(admin);
-  const out: Record<string, unknown> = { configured: !!found };
-  if (found && (await isAdmin(admin, userId))) out.masked_key = mask(found.key) + (found.source === 'env' ? ' (secret server)' : '');
+  const usable = await usableKeys(admin);
+  const out: Record<string, unknown> = { configured: usable.length > 0 };
+  if (await isAdmin(admin, userId)) {
+    const all = await allKeys(admin);
+    out.accounts = all.length; out.usable = usable.length;
+    if (usable[0]) out.masked_key = mask(usable[0].key);
+  }
   return out;
 }
 
@@ -96,8 +204,8 @@ async function saveConfig(admin: Admin, userId: string, body: { api_key?: string
   if (key.length < 8 || key.length > 200 || /\s/.test(key)) throw new HttpError(400, 'Format API key tidak valid.');
   const { error } = await admin.from('app_secrets').upsert({ key: 'bigjpg_api_key', value: key, updated_at: new Date().toISOString() });
   if (error) throw new HttpError(500, 'Gagal menyimpan API key.');
-  const envNote = Deno.env.get('BIGJPG_API_KEY') ? ' Catatan: secret server BIGJPG_API_KEY tetap diprioritaskan.' : '';
-  return { message: 'API key BigJPG berhasil disimpan.' + envNote };
+  await admin.from('bigjpg_keys').insert({ label: 'Akun BigJPG', api_key: key }).then(() => {}, () => {});
+  return { message: 'API key BigJPG berhasil disimpan.' };
 }
 
 // Refund exactly what was charged for this job (also correct for jobs started before a price change).
@@ -135,8 +243,11 @@ async function start(admin: Admin, userId: string, b: Record<string, unknown>) {
   if (!row || row.user_id !== userId) throw new HttpError(404, 'Riwayat tidak ditemukan.');
   if (row.bigjpg_tid) throw new HttpError(409, 'Riwayat ini sudah diproses.');
 
-  const apiKey = await getApiKey(admin);
-  if (!apiKey) throw new HttpError(503, 'Layanan Upscale belum dikonfigurasi (API key BigJPG belum diisi).');
+  const candidates = await usableKeys(admin);
+  if (!candidates.length) {
+    const any = (await allKeys(admin)).length;
+    throw new HttpError(503, any ? 'Kuota upscale bulan ini sudah habis. Coba lagi bulan depan atau hubungi admin.' : 'Layanan Upscale belum dikonfigurasi (API key BigJPG belum diisi).');
+  }
 
   const { data: signed, error: signErr } = await admin.storage.from(BUCKET).createSignedUrl(storagePath, 3600);
   if (signErr || !signed?.signedUrl) throw new HttpError(400, 'Gambar tidak ditemukan di penyimpanan. Coba unggah ulang.');
@@ -153,21 +264,24 @@ async function start(admin: Admin, userId: string, b: Record<string, unknown>) {
   }
 
   let tid = '';
+  let usedKey: PoolKey | null = null;
   try {
-    const res = await fetch(`${BIGJPG}/api/task/`, {
-      method: 'POST',
-      headers: { 'X-API-KEY': apiKey.key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        style, noise: String(noise), x2: X2[scale], input: signed.signedUrl,
-        file_name: fileName.replace(/\.[^.]+$/, '') + '.png',
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!data?.tid) {
+    for (const k of candidates) {
+      const res = await fetch(`${BIGJPG}/api/task/`, {
+        method: 'POST',
+        headers: { 'X-API-KEY': k.key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          style, noise: String(noise), x2: X2[scale], input: signed.signedUrl,
+          file_name: fileName.replace(/\.[^.]+$/, '') + '.png',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.tid) { tid = String(data.tid); usedKey = k; break; }
       const code = String(data?.status ?? '');
+      if (code === 'month_limit') { await markExhausted(admin, k); continue; }   // this account is used up: try the next one
       throw new HttpError(502, BIGJPG_ERRORS[code] ?? `BigJPG menolak permintaan${code ? ` (${code})` : ''}.`);
     }
-    tid = String(data.tid);
+    if (!tid) throw new HttpError(503, 'Kuota upscale bulan ini sudah habis di semua akun. Kredit dikembalikan.');
   } catch (e) {
     await refund(admin, userId, historyId, scale);
     await removeInput(admin, storagePath);
@@ -177,7 +291,7 @@ async function start(admin: Admin, userId: string, b: Record<string, unknown>) {
   }
 
   await admin.from('riwayat_bigjpg').update({
-    bigjpg_tid: tid, storage_path: storagePath, task_id: tid, status: 'processing',
+    bigjpg_tid: tid, storage_path: storagePath, task_id: tid, status: 'processing', key_id: usedKey?.id ?? null,
     updated_at: new Date().toISOString(),
   }).eq('id', historyId);
 
@@ -189,12 +303,13 @@ async function status(admin: Admin, userId: string, b: Record<string, unknown>) 
   const historyId = String(b.history_id ?? '');
   if (!/^[0-9a-f-]{36}$/i.test(historyId)) throw new HttpError(400, 'ID riwayat tidak valid.');
   const { data: row } = await admin.from('riwayat_bigjpg')
-    .select('id,user_id,scale,bigjpg_tid,storage_path,status,result_url').eq('id', historyId).maybeSingle();
+    .select('id,user_id,scale,bigjpg_tid,storage_path,status,result_url,key_id').eq('id', historyId).maybeSingle();
   if (!row || row.user_id !== userId) throw new HttpError(404, 'Riwayat tidak ditemukan.');
   if (!row.bigjpg_tid) throw new HttpError(400, 'Tugas belum dimulai.');
   if (row.status === 'completed' && row.result_url) return { status: 'completed', result_url: row.result_url };
 
-  const apiKey = await getApiKey(admin);
+  const keys = await allKeys(admin);
+  const apiKey = (row.key_id && keys.find((k) => k.id === row.key_id)) || keys.find((k) => k.id === null) || keys[0];
   if (!apiKey) throw new HttpError(503, 'API key BigJPG belum dikonfigurasi.');
 
   const res = await fetch(`${BIGJPG}/api/task/${encodeURIComponent(row.bigjpg_tid)}`, { headers: { 'X-API-KEY': apiKey.key } });

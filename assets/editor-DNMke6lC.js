@@ -1,4 +1,4 @@
-import{c as y,O as J,a as I,b as K,d as H,p as Q,n as aa,r as ea,e as N,k as ta,s as ia,f as na}from"./engine-elPpDHf2.js";import{i as d,$ as i,d as S,u as sa,t as ra,c as la,a as oa,e as k,s as da,b as ca,r as G,f as _,g as pa,h as F,n as q,j as h,k as ua,l as ba}from"./index-C2iuFjng.js";function ka(V){V.innerHTML=`
+import{c as y,O as J,a as I,b as K,d as H,p as Q,n as aa,r as ea,e as N,k as ta,s as ia,f as na}from"./engine-elPpDHf2.js";import{i as d,$ as i,d as S,u as sa,t as ra,c as la,a as oa,e as k,s as da,b as ca,r as G,f as _,g as pa,h as F,n as q,j as h,k as ua,l as ba}from"./index-B2QWfbcT.js";function ka(V){V.innerHTML=`
   <div class="editor" id="ed">
     <div class="tabsbar"><div class="doc empty" id="docTab"><span class="name" id="docName">Belum ada gambar</span><span class="num subtle" id="docZoom"></span></div></div>
 

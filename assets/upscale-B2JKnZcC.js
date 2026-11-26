@@ -1,4 +1,4 @@
-import{i as f,g as k,$ as n,m as H,n as C,d as c,r as J,e as o,o as V,k as I,l as O,j as x,f as D,u as X}from"./index-C2iuFjng.js";const U="bigjpg-inputs",j="bigjpg-upscale",Z=360,Q=[["-1","Tidak ada"],["0","Rendah"],["1","Sedang"],["2","Tinggi"],["3","Tertinggi"]];function ee(A){let L={2:1,4:1,8:1,16:1},w=null,P=!0,p=null,N=0;A.innerHTML=`
+import{i as f,g as k,$ as n,m as H,n as C,d as c,r as J,e as o,o as V,k as I,l as O,j as x,f as D,u as X}from"./index-B2QWfbcT.js";const U="bigjpg-inputs",j="bigjpg-upscale",Z=360,Q=[["-1","Tidak ada"],["0","Rendah"],["1","Sedang"],["2","Tinggi"],["3","Tertinggi"]];function ee(A){let L={2:1,4:1,8:1,16:1},w=null,P=!0,p=null,N=0;A.innerHTML=`
   <div class="page"><div class="page-in">
     <div class="page-head"><div><h1>Upscale gambar</h1><p>Perbesar gambar kecil lewat BigJPG, 1 kredit per gambar. Gambar diunggah ke server untuk diproses; kredit dikembalikan otomatis kalau gagal.</p></div></div>
     <div class="two">

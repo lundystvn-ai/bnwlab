@@ -59,11 +59,23 @@ export function mount(host) {
         <div class="metric"><div class="label">Unduhan bulan ini</div><div class="value">${num(data.downloads_month)}</div></div>
       </div>
       <p class="xs subtle">Total pendapatan: ${rupiah(data.revenue_total)} · ${num(data.pending)} tagihan belum dibayar</p>
+      <div id="ovQuota" style="margin-top:12px"></div>
       <div class="toolbar" style="margin-top:20px"><h2>Perlu dicek</h2><button class="btn btn-secondary" data-goto="pembayaran">Semua pembayaran</button></div>
       <div id="ovList"></div>`;
     body().querySelector('[data-goto]').onclick = () => host.querySelector('[data-tab=pembayaran]').click();
+    quotaBox($('ovQuota'));
     await paymentTable($('ovList'), 'waiting');
     badge();
+  }
+
+  async function quotaBox(box) {
+    try {
+      const { invoke } = await import('./supa.js');
+      const r = await invoke('bigjpg-upscale', { action: 'list_keys' });
+      if (!alive || !box.isConnected || !r.keys?.length) return;
+      const pct = r.total_quota ? Math.round((r.total_used / r.total_quota) * 100) : 0;
+      box.innerHTML = `<div class="card"><div class="progress ${pct >= 90 ? 'bad' : pct >= 80 ? 'warn' : 'ok'}"><div class="head"><span>Kuota upscale BigJPG bulan ini · ${r.keys.filter((k) => k.active).length} akun</span><b class="num">${num(r.total_used)} / ${num(r.total_quota)}</b></div><div class="bar"><i style="width:${Math.min(100, pct)}%"></i></div><small>Sisa ${num(r.remaining)}${pct >= 80 ? ' · hampir habis: tambah akun di tab API &amp; koneksi' : ''}</small></div></div>`;
+    } catch {}
   }
 
   // ---------- payments ----------
