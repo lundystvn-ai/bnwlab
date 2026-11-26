@@ -17,6 +17,7 @@ export function mount(host) {
     <div class="page-head"><div><h1>Admin</h1><p>Konfirmasi pembayaran, kelola pengguna &amp; kredit, riwayat unduhan, QRIS, dan akun BigJPG.</p></div></div>
     <nav class="tabs" role="tablist">
       <button role="tab" data-tab="ringkasan">Ringkasan</button>
+      <button role="tab" data-tab="pengunjung">Pengunjung</button>
       <button role="tab" data-tab="pembayaran">Pembayaran <span class="count" id="tabCount" hidden></span></button>
       <button role="tab" data-tab="pengguna">Pengguna</button>
       <button role="tab" data-tab="support">Support <span class="count" id="tabSupport" hidden></span></button>
@@ -32,6 +33,7 @@ export function mount(host) {
     settingsUnmount?.(); settingsUnmount = null;
     host.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
     if (tab === 'ringkasan') return overview();
+    if (tab === 'pengunjung') { const m = await import('./visits.js'); return m.renderVisits(body(), () => alive); }
     if (tab === 'pembayaran') return payments();
     if (tab === 'pengguna') return users();
     if (tab === 'qris') return qris();
@@ -335,7 +337,7 @@ export function mount(host) {
     };
   }
 
-  const first = ['ringkasan', 'pembayaran', 'pengguna', 'support', 'unduhan', 'qris', 'koneksi'].includes(tabFromHash()) ? tabFromHash() : 'ringkasan';
+  const first = ['ringkasan', 'pengunjung', 'pembayaran', 'pengguna', 'support', 'unduhan', 'qris', 'koneksi'].includes(tabFromHash()) ? tabFromHash() : 'ringkasan';
   show(first);
   badge();
   return () => { alive = false; settingsUnmount?.(); };

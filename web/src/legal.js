@@ -25,6 +25,7 @@ function privacy() {
           <li><b>Riwayat unduhan:</b> nama file, jenis proses (misalnya raster bulat + knockout), ukuran gambar dalam piksel, pilihan warna kaos, dan waktu unduh.</li>
           <li><b>Riwayat upscale:</b> nama file, skala, jenis gambar, status, dan link hasil.</li>
           <li><b>Pesan Support:</b> isi pesan, topik, dan username Instagram bila Anda mengisinya.</li>
+          <li><b>Statistik kunjungan:</b> halaman yang dibuka, situs asal kunjungan, jenis perangkat, dan bahasa, dengan ID acak buatan browser. Tidak mencatat alamat IP, nama, atau email.</li>
           <li><b>Penyimpanan di browser:</b> sesi login, pilihan tema, dan pilihan bahasa disimpan di browser Anda (local storage). Kami tidak memakai cookie iklan atau pelacak pihak ketiga.</li>
         </ul>`, `
         <ul>
@@ -33,6 +34,7 @@ function privacy() {
           <li><b>Download history:</b> file name, operation (for example round raster + knockout), image size in pixels, shirt colour preview and time.</li>
           <li><b>Upscale history:</b> file name, scale, image type, status and result link.</li>
           <li><b>Support messages:</b> the message, its topic, and your Instagram username if you give it.</li>
+          <li><b>Visit statistics:</b> the pages opened, the site you came from, device type and language, with a random ID made by your browser. No IP address, name or email is recorded.</li>
           <li><b>Browser storage:</b> your sign-in session, theme and language are kept in your browser (local storage). We use no advertising cookies or third-party trackers.</li>
         </ul>`)],
       [L('2. Gambar Anda', '2. Your images'), L(`

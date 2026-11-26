@@ -4,6 +4,7 @@ import { $, closeModal, toast } from './util.js';
 import { state, onSession, applySession, clearSession, signOut, authDialog, topupDialog, newPasswordDialog, loadPackages, loadSettings, refreshCredits, isAdmin } from './session.js';
 import { renderLanding, pricing } from './landing.js';
 import { lang, L, setLang } from './i18n.js';
+import { track, excludeThisDevice } from './track.js';
 
 const APP_ROUTES = ['editor', 'upscale', 'kredit', 'admin', 'support', 'cek'];
 const OPEN_ROUTES = ['support', 'cek'];   // app pages that guests may open too
@@ -31,6 +32,7 @@ async function render() {
   let route = routeFromHash();
   if (route === 'pengaturan') { history.replaceState(null, '', '#admin/koneksi'); route = 'admin'; }
   if (route === 'riwayat') { history.replaceState(null, '', '#kredit'); route = 'kredit'; }
+  track(route);
   closeModal();
   document.querySelectorAll('.menu a, .admin-link').forEach((a) => (a.dataset.route === route ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
 
@@ -77,6 +79,7 @@ function appFrame() {
 function syncHeader() {
   document.body.classList.toggle('is-auth', !!state.user);
   document.body.classList.toggle('is-admin', isAdmin());
+  if (isAdmin()) excludeThisDevice();
   $('userBox').hidden = !state.user; $('logoutBtn').hidden = !state.user;
   $('userName').textContent = state.profile?.username || '';
 }
