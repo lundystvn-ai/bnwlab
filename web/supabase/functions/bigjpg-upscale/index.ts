@@ -1,5 +1,5 @@
 // Edge Function: bigjpg-upscale
-// Aksi: costs | config_status | save_config | start | status | list_keys | add_key | update_key | remove_key
+// Aksi: costs | config_status | save_config | start | status | download | list_keys | add_key | update_key | remove_key
 // API key BigJPG TIDAK pernah dikirim ke browser. Beberapa akun BigJPG berbayar dipakai bergantian (tabel bigjpg_keys);
 // kalau satu akun kena kuota bulanan (month_limit), otomatis pindah ke akun berikutnya.
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
         return json(await start(admin, user.id, body));
       case 'status':
         return json(await status(admin, user.id, body));
+      case 'download':
+        return await downloadResult(admin, user.id, body);
       case 'list_keys':
         await requireAdmin(admin, user.id); return json(await listKeysForAdmin(admin));
       case 'add_key':
@@ -296,6 +298,18 @@ async function start(admin: Admin, userId: string, b: Record<string, unknown>) {
   }).eq('id', historyId);
 
   return { task_id: tid, balance: spend.data };
+}
+
+// ---------- download: stream a finished result back to the page (used by Cek Gambar) ----------
+async function downloadResult(admin: Admin, userId: string, b: Record<string, unknown>) {
+  const historyId = String(b.history_id ?? '');
+  if (!/^[0-9a-f-]{36}$/i.test(historyId)) throw new HttpError(400, 'ID riwayat tidak valid.');
+  const { data: row } = await admin.from('riwayat_bigjpg').select('user_id,status,result_url').eq('id', historyId).maybeSingle();
+  if (!row || row.user_id !== userId) throw new HttpError(404, 'Riwayat tidak ditemukan.');
+  if (row.status !== 'completed' || !/^https:\/\//i.test(String(row.result_url ?? ''))) throw new HttpError(409, 'Hasil upscale belum siap.');
+  const res = await fetch(String(row.result_url));
+  if (!res.ok || !res.body) throw new HttpError(502, 'Hasil upscale tidak bisa diambil. Coba lagi sebentar.');
+  return new Response(res.body, { headers: { ...CORS, 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' } });
 }
 
 // ---------- status ----------

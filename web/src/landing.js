@@ -5,7 +5,7 @@ import { footer } from './legal.js';
 
 export function renderLanding(view) {
   const perCredit = state.packages.map((x) => x.harga / x.kredit);
-  const fromPrice = rupiah(Math.floor((Math.min(...perCredit) * 2) / 100) * 100);
+  const fromPrice = rupiah(Math.floor(Math.min(...perCredit) / 100) * 100);
   const bestSave = Math.max(0, ...state.packages.map(save));
   const studio = state.packages[state.packages.length - 1];
   view.innerHTML = `
@@ -56,8 +56,8 @@ export function renderLanding(view) {
     <section class="section alt" id="harga">
       <div class="wrap">
         <h2>${L(`Desain siap cetak mulai ${fromPrice}`, `Print-ready designs from ${fromPrice}`)}</h2>
-        <p class="sub">${L(`Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: Raster/Knockout 2 kredit, Upscale 1 kredit. Kredit tidak pernah hangus${bestSave ? `, dan paket ${esc(pkgName(studio))} hemat sampai ${bestSave}% per kredit` : ''}.`,
-          `Adjust and preview as much as you like, for free. Credits are only used when you download: Raster/Knockout 2 credits, Upscale 1 credit. Credits never expire${bestSave ? `, and the ${esc(pkgName(studio))} pack saves up to ${bestSave}% per credit` : ''}.`)}</p>
+        <p class="sub">${L(`Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: file siap cetak dari Cek Gambar 1 kredit, Raster/Knockout 2 kredit, Upscale 1 kredit. Kredit tidak pernah hangus${bestSave ? `, dan paket ${esc(pkgName(studio))} hemat sampai ${bestSave}% per kredit` : ''}.`,
+          `Adjust and preview as much as you like, for free. Credits are only used when you download: a print-ready file from the Image Checker 1 credit, Raster/Knockout 2 credits, Upscale 1 credit. Credits never expire${bestSave ? `, and the ${esc(pkgName(studio))} pack saves up to ${bestSave}% per credit` : ''}.`)}</p>
         <div class="prices" id="prices">${pricing()}</div>
       </div>
     </section>

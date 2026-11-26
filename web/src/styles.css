@@ -356,3 +356,6 @@ td .row{gap:6px;flex-wrap:nowrap}
   .lang-btn{height:28px}.lang-btn span{padding:3px 4px}
   .ibtn{width:28px}
 }
+.chk-canvas{position:relative}
+.chk-busy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;background:color-mix(in srgb,var(--color-bg) 72%,transparent);font-size:var(--text-sm);font-weight:600}
+.chk-meta{flex-wrap:wrap;gap:4px}
