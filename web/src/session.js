@@ -80,6 +80,7 @@ export function authDialog(mode = 'masuk', email = '', after) {
       <div class="field"><label for="pwEmail">Email</label><input id="pwEmail" type="email" required autocomplete="email" value="${esc(email)}"${daftar ? '' : ' autofocus'}></div>
       ${noPass ? '' : `<div class="field"><label for="pwPass">Password${daftar ? ` <span class="muted">${L('(minimal 8 karakter)', '(at least 8 characters)')}</span>` : ''}</label><input id="pwPass" type="password" required minlength="${daftar ? 8 : 1}" autocomplete="${daftar ? 'new-password' : 'current-password'}"></div>`}
       <div id="pwMsg" aria-live="polite"></div>
+      ${daftar ? `<p class="xs muted" style="margin:0">${L('Dengan mendaftar, Anda menyetujui <a href="#ketentuan">Syarat &amp; Ketentuan</a> dan <a href="#privasi">Kebijakan Privasi</a>.', 'By signing up you agree to the <a href="#ketentuan">Terms of Service</a> and <a href="#privasi">Privacy Policy</a>.')}</p>` : ''}
       <button class="btn btn-primary btn-lg btn-block" type="submit" id="pwSubmit">${daftar ? L('Daftar', 'Sign up') : lupa ? L('Kirim kode', 'Send code') : L('Masuk', 'Sign in')}</button>
     </form>
     <div class="auth-links">

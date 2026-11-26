@@ -6,6 +6,9 @@ import { $, esc, icon, notice, toast, uuid, fmtDate, num } from './util.js';
 import { L as T, tr, lang } from './i18n.js';
 import { state, setCredits, topupDialog, authDialog, clearSession, isAdmin, isManager, regionId, regionTz } from './session.js';
 
+// Downloaded PNGs open at 300 DPI in RIP software.
+const dpiBlob = async (b) => { try { return new Blob([E.setPngDpi(await b.arrayBuffer(), 300)], { type: 'image/png' }); } catch { return b; } };
+
 const opLabel = (op) => {
   const l = E.OPERATION_LABELS[op] || op || 'Original';
   return lang === 'en' ? l.replace('Raster Bulat', 'Round Raster').replace('Raster Garis', 'Line Raster').replace('Warna', 'Colour') : l;
@@ -261,7 +264,7 @@ export function mount(host) {
     const gen = ++blobGen, data = S.B;
     const c = document.createElement('canvas'); c.width = data.width; c.height = data.height;
     c.getContext('2d').putImageData(data, 0, 0);
-    c.toBlob((b) => { if (gen !== blobGen || !b) return; S.blobUrl = URL.createObjectURL(b); S.blobFor = data; }, 'image/png');
+    c.toBlob(async (b) => { if (gen !== blobGen || !b) return; const d = await dpiBlob(b); if (gen !== blobGen) return; S.blobUrl = URL.createObjectURL(d); S.blobFor = data; }, 'image/png');
   }
 
   // ---------- undo (one step, like before) ----------
@@ -423,7 +426,7 @@ export function mount(host) {
         await new Promise((res) => {
           const c = document.createElement('canvas'); c.width = S.B.width; c.height = S.B.height;
           c.getContext('2d').putImageData(S.B, 0, 0);
-          c.toBlob((b) => { if (b) { S.blobUrl = URL.createObjectURL(b); S.blobFor = S.B; } res(); }, 'image/png');
+          c.toBlob(async (b) => { if (b) { S.blobUrl = URL.createObjectURL(await dpiBlob(b)); S.blobFor = S.B; } res(); }, 'image/png');
         });
       }
       const a = document.createElement('a');

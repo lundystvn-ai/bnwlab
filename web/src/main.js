@@ -8,6 +8,8 @@ import { lang, L, setLang } from './i18n.js';
 const APP_ROUTES = ['editor', 'upscale', 'kredit', 'admin', 'support'];
 const OPEN_ROUTES = ['support'];   // app pages that guests may open too
 const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];
+const LEGAL_ROUTES = ['privasi', 'ketentuan'];
+const BASE_TITLE = document.title;
 const view = $('view');
 let current = null;       // current route name
 let unmount = null;       // cleanup for the mounted app view
@@ -50,6 +52,13 @@ async function render() {
       .then(([{ data }, { count }]) => { const c = $('menuCount'), t = (data?.waiting || 0) + (count || 0); if (c) { c.hidden = !t; c.textContent = String(t); } });
     return;
   }
+  if (LEGAL_ROUTES.includes(route)) {
+    unmount?.(); unmount = null; current = route;
+    const { renderLegal } = await import('./legal.js');
+    renderLegal(view, route); window.scrollTo(0, 0);
+    return;
+  }
+  document.title = BASE_TITLE;
   showLanding();
   if (LANDING_SECTIONS.includes(route)) requestAnimationFrame(() => $(route)?.scrollIntoView({ behavior: 'smooth' }));
   else window.scrollTo(0, 0);

@@ -254,3 +254,44 @@ export const OPERATION_SLUG = {
   raster_line_knockout_black: 'raster-garis-knockout-black', raster_line_knockout_white: 'raster-garis-knockout-white',
   raster_line_knockout_color: 'raster-garis-knockout-warna',
 };
+
+// ---------- PNG print resolution ----------
+// Canvas PNGs carry no DPI, so RIP software assumes 72/96 DPI. Insert a pHYs chunk (pixels per metre)
+// right after IHDR, replacing any existing pHYs, so the file opens at the right print size.
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+export function setPngDpi(buffer, dpi = 300) {
+  const src = new Uint8Array(buffer);
+  const sig = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (src.length < 33 || sig.some((v, i) => src[i] !== v)) return src;      // not a PNG: leave it alone
+  const view = new DataView(src.buffer, src.byteOffset, src.byteLength);
+  const ppm = Math.round(dpi / 0.0254);
+  const chunk = new Uint8Array(21);
+  const cv = new DataView(chunk.buffer);
+  cv.setUint32(0, 9);
+  chunk.set([0x70, 0x48, 0x59, 0x73], 4);                                   // "pHYs"
+  cv.setUint32(8, ppm); cv.setUint32(12, ppm); chunk[16] = 1;               // unit: metre
+  cv.setUint32(17, crc32(chunk.subarray(4, 17)));
+  const parts = [src.subarray(0, 8)];
+  let off = 8, inserted = false;
+  while (off + 12 <= src.length) {
+    const len = view.getUint32(off);
+    const type = String.fromCharCode(src[off + 4], src[off + 5], src[off + 6], src[off + 7]);
+    const end = off + 12 + len;
+    if (type !== 'pHYs') parts.push(src.subarray(off, end));
+    if (type === 'IHDR' && !inserted) { parts.push(chunk); inserted = true; }
+    off = end;
+    if (type === 'IEND') break;
+  }
+  const out = new Uint8Array(parts.reduce((a, p) => a + p.length, 0));
+  let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}

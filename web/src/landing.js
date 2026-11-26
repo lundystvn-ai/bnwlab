@@ -1,6 +1,7 @@
 import { esc, rupiah, icon } from './util.js';
 import { state } from './session.js';
 import { L, pkgName, pkgNote } from './i18n.js';
+import { footer } from './legal.js';
 
 export function renderLanding(view) {
   const perCredit = state.packages.map((x) => x.harga / x.kredit);
@@ -73,7 +74,7 @@ export function renderLanding(view) {
       </div>
     </section>
 
-    <footer class="footer"><div class="wrap"><img src="/logo-64.png" alt="BNW Lab"><span>© ${new Date().getFullYear()} BNW Design Lab · Instagram @bnwlab</span></div></footer>
+    ${footer()}
   </main>`;
   wireCompare(view.querySelector('#heroCompare'), view.querySelector('#heroSplit'), view.querySelector('#heroKnob'));
 }

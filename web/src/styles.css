@@ -318,3 +318,10 @@ td .row{gap:6px;flex-wrap:nowrap}
 .lang-btn span{padding:3px 6px;border-radius:3px;color:var(--color-text-subtle)}
 .lang-btn span.on{background:var(--color-surface-3);color:var(--color-text)}
 .lang-btn:hover span:not(.on){color:var(--color-text)}
+.foot-links{display:flex;gap:16px;flex-wrap:wrap}.foot-links a{color:var(--color-text-muted)}.foot-links a:hover{color:var(--color-text)}
+.legal-wrap{max-width:760px;padding-top:40px;padding-bottom:40px}
+.legal h1{font-size:var(--text-2xl, 28px);margin:4px 0}
+.legal h2{font-size:var(--text-lg);margin:28px 0 8px}
+.legal p,.legal li{font-size:var(--text-sm);line-height:1.65;color:var(--color-text)}
+.legal ul{padding-left:20px;margin:0;display:flex;flex-direction:column;gap:6px}
+.legal .lead{font-size:var(--text-base);color:var(--color-text-muted)}
