@@ -56,14 +56,14 @@ export function confirmBox({ title, body, okLabel = L('Lanjut', 'Continue'), dan
 // Faint tiled "PREVIEW" mark drawn on top of a preview canvas only. Downloads are made from the
 // image data, never from this canvas, so they stay clean.
 export function previewMark(ctx, w, h) {
-  const size = Math.max(14, Math.round(Math.min(w, h) / 16));
+  const size = Math.max(11, Math.round(Math.min(w, h) / 30));
   const text = 'BNW LAB · PREVIEW';
   ctx.save();
-  ctx.font = `700 ${size}px system-ui, sans-serif`;
+  ctx.font = `600 ${size}px system-ui, sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.lineWidth = Math.max(1, size / 12); ctx.lineJoin = 'round';
-  ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.strokeStyle = 'rgba(0,0,0,0.22)';
-  const tw = ctx.measureText(text).width, gx = tw + size * 3, gy = size * 5;
+  ctx.lineWidth = Math.max(1, size / 14); ctx.lineJoin = 'round';
+  ctx.fillStyle = 'rgba(255,255,255,0.16)'; ctx.strokeStyle = 'rgba(0,0,0,0.14)';
+  const tw = ctx.measureText(text).width, gx = tw + size * 6, gy = size * 8;
   ctx.translate(w / 2, h / 2); ctx.rotate(-Math.PI / 7);
   const reach = Math.hypot(w, h) / 2 + gx;
   for (let y = -reach, row = 0; y <= reach; y += gy, row++) {
