@@ -105,7 +105,7 @@ export function mount(host) {
         <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" id="tgTest">Kirim pesan tes</button><button class="btn btn-secondary" id="tgReconnect">Ganti chat penerima</button><button class="btn btn-quiet" id="tgOff">Matikan</button></div><div id="tgMsg"></div>`;
     } else if (st.has_token) {
       box.innerHTML = `${head}${notice(`Bot <b>@${esc(st.bot || '')}</b> tersimpan. Buka <a href="https://t.me/${esc(st.bot || '')}" target="_blank" rel="noopener">t.me/${esc(st.bot || '')}</a>, tekan <b>Start</b>, lalu klik Sambungkan.`, 'warn')}
-        <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" id="tgConnect">Sambungkan</button><button class="btn btn-quiet" id="tgOff">Hapus bot</button></div>
+        <div class="row" style="flex-wrap:wrap"><a class="btn btn-secondary" href="https://t.me/${esc(st.bot || '')}?start=bnwlab" target="_blank" rel="noopener">${icon('chat', 'i i-sm')}1. Buka bot &amp; tekan Start</a><button class="btn btn-primary" id="tgConnect">2. Sambungkan</button><button class="btn btn-quiet" id="tgOff">Hapus bot</button></div>
         <details><summary class="xs muted" style="cursor:pointer">Ganti token bot</summary><div style="margin-top:8px">${tokenForm}</div></details><div id="tgMsg"></div>`;
     } else {
       box.innerHTML = `${head}${steps}${tokenForm}<div id="tgMsg"></div>`;
@@ -117,7 +117,22 @@ export function mount(host) {
       finally { if (btn && btn.isConnected) btn.disabled = false; }
     };
     const f = $('tgForm'); if (f) f.onsubmit = (e) => { e.preventDefault(); run(f.querySelector('button'), { action: 'save_token', token: $('tgToken').value.trim() }); };
-    $('tgConnect')?.addEventListener('click', (e) => run(e.currentTarget, { action: 'connect' }));
+    // Wait up to ~60 s for the admin's "Start" message to reach the bot.
+    $('tgConnect')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget; btn.disabled = true;
+      for (let i = 0; i < 20 && alive && btn.isConnected; i++) {
+        try { const r = await invoke('telegram-admin', { action: 'connect' }); toast(r.message); await telegramBox(); return; }
+        catch (err) {
+          const m = $('tgMsg'); if (!m) return;
+          if (!/Belum ada pesan/.test(err.message)) { m.innerHTML = notice(esc(err.message), 'error'); btn.disabled = false; return; }
+          m.innerHTML = notice(`Menunggu pesan Start dari Anda di bot <b>@${esc(st.bot || '')}</b>… (${20 - i})`, 'warn');
+          btn.textContent = 'Menunggu…';
+          await new Promise((res) => setTimeout(res, 3000));
+        }
+      }
+      const m = $('tgMsg'); if (m) m.innerHTML = notice(`Belum ada pesan masuk ke <b>@${esc(st.bot || '')}</b>. Pastikan Anda membuka bot yang sama dan menekan Start, lalu klik Sambungkan lagi.`, 'error');
+      if (btn.isConnected) { btn.disabled = false; btn.textContent = '2. Sambungkan'; }
+    });
     $('tgReconnect')?.addEventListener('click', (e) => run(e.currentTarget, { action: 'connect' }));
     $('tgTest')?.addEventListener('click', (e) => run(e.currentTarget, { action: 'test' }));
     $('tgOff')?.addEventListener('click', async (e) => {
