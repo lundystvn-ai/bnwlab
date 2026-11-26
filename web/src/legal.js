@@ -8,8 +8,8 @@ const UPDATED = { id: '26 November 2026', en: '26 November 2026' };
 const contact = () => {
   const wa = String(cfg.kontakWhatsApp || '').replace(/\D/g, '');
   return L(
-    `Hubungi kami lewat halaman <a href="#support">Support</a>${wa ? `, WhatsApp <a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">+${esc(wa)}</a>` : ''}, atau Instagram <a href="https://instagram.com/bnwlab" target="_blank" rel="noopener">@bnwlab</a>.`,
-    `Contact us through the <a href="#support">Support</a> page${wa ? `, WhatsApp <a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">+${esc(wa)}</a>` : ''}, or Instagram <a href="https://instagram.com/bnwlab" target="_blank" rel="noopener">@bnwlab</a>.`);
+    `Hubungi kami lewat halaman <a href="#support">Support</a>${wa ? `, WhatsApp <a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">+${esc(wa)}</a>` : ''}, atau Instagram <a href="https://www.instagram.com/bnwlab.id" target="_blank" rel="noopener">@bnwlab.id</a>.`,
+    `Contact us through the <a href="#support">Support</a> page${wa ? `, WhatsApp <a href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">+${esc(wa)}</a>` : ''}, or Instagram <a href="https://www.instagram.com/bnwlab.id" target="_blank" rel="noopener">@bnwlab.id</a>.`);
 };
 
 function privacy() {
@@ -181,4 +181,4 @@ export function renderLegal(view, which) {
   </main>`;
 }
 
-export const footer = () => `<footer class="footer"><div class="wrap"><img src="/logo-64.png" alt="BNW Lab"><span class="foot-links"><a href="#privasi">${L('Privasi', 'Privacy')}</a><a href="#ketentuan">${L('Syarat & Ketentuan', 'Terms')}</a><a href="#support">Support</a></span><span>© ${new Date().getFullYear()} BNW Design Lab · Instagram @bnwlab</span></div></footer>`;
+export const footer = () => `<footer class="footer"><div class="wrap"><img src="/logo-64.png" alt="BNW Lab"><span class="foot-links"><a href="#privasi">${L('Privasi', 'Privacy')}</a><a href="#ketentuan">${L('Syarat & Ketentuan', 'Terms')}</a><a href="#support">Support</a></span><span>© ${new Date().getFullYear()} BNW Design Lab · <a href="https://www.instagram.com/bnwlab.id" target="_blank" rel="noopener">Instagram @bnwlab.id</a></span></div></footer>`;
