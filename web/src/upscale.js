@@ -14,7 +14,7 @@ export function mount(host) {
   let pollTimer = null, alive = true, file = null, metricsGen = 0;
   host.innerHTML = `
   <div class="page"><div class="page-in">
-    <div class="page-head"><div><h1>Upscale gambar</h1><p>Perbesar gambar kecil lewat BigJPG, 1 kredit per gambar. Gambar diunggah ke server untuk diproses; kredit dikembalikan otomatis kalau gagal.</p></div></div>
+    <div class="page-head"><div><h1>Upscale gambar</h1><p>Perbesar gambar kecil, 1 kredit per gambar. Gambar diunggah ke server untuk diproses; kredit dikembalikan otomatis kalau gagal.</p></div></div>
     <div class="two">
       <form class="card stack" id="upForm" novalidate>
         <label class="dropzone" id="upDrop" style="width:100%;padding:24px" tabindex="0">
@@ -24,7 +24,7 @@ export function mount(host) {
         </label>
         <div class="field"><label>Perbesar</label><div class="seg" role="radiogroup" aria-label="Skala" id="upScale" style="height:32px">
           ${[2, 4, 8, 16].map((s) => `<button type="button" role="radio" aria-checked="${s === 4}" data-v="${s}" style="height:28px">${s}× <span class="subtle" data-cost="${s}"></span></button>`).join('')}
-        </div><span class="xs subtle">8× dan 16× membutuhkan akun BigJPG VIP.</span></div>
+        </div><span class="xs subtle">8× dan 16× butuh waktu proses lebih lama.</span></div>
         <div class="field"><label>Jenis gambar</label><div class="seg" role="radiogroup" aria-label="Jenis gambar" id="upStyle" style="height:32px">
           <button type="button" role="radio" aria-checked="true" data-v="art" style="height:28px">Ilustrasi / artwork</button><button type="button" role="radio" aria-checked="false" data-v="photo" style="height:28px">Foto</button>
         </div></div>
@@ -93,7 +93,7 @@ export function mount(host) {
   const safeUrl = (u) => (/^https?:\/\//i.test(String(u || '').trim()) ? String(u).trim() : '');
   function showResult(url) {
     const u = safeUrl(url); if (!u) return;
-    $('upResult').innerHTML = `<div class="stack"><img class="result-img" src="${esc(u)}" alt="Hasil upscale"><div class="row"><a class="btn btn-primary btn-lg" href="${esc(u)}" target="_blank" rel="noopener">${icon('download', 'i i-sm')}Buka / unduh hasil</a></div><p class="xs subtle">Link hasil dari BigJPG berlaku terbatas. Simpan file segera.</p></div>`;
+    $('upResult').innerHTML = `<div class="stack"><img class="result-img" src="${esc(u)}" alt="Hasil upscale"><div class="row"><a class="btn btn-primary btn-lg" href="${esc(u)}" target="_blank" rel="noopener">${icon('download', 'i i-sm')}Buka / unduh hasil</a></div><p class="xs subtle">Link hasil berlaku terbatas. Simpan file segera.</p></div>`;
   }
 
   // submit
@@ -114,18 +114,18 @@ export function mount(host) {
       }).select('id').single();
       if (ins.error) throw new Error(ins.error.message);
       id = ins.data.id; prog.dataset.id = String(id);
-      live(id, 'uploading', 0, 'Menyiapkan file untuk BigJPG…');
+      live(id, 'uploading', 0, 'Menyiapkan file…');
       const safe = String(file.name || 'gambar').replace(/[^A-Za-z0-9._-]+/g, '_').slice(-100) || 'gambar';
       path = `${state.user.id}/${uuid()}-${safe}`;
       const up = await db.storage.from(BUCKET).upload(path, file, { contentType: file.type, cacheControl: '3600', upsert: false });
       if (up.error) throw new Error('Gambar gagal diunggah: ' + up.error.message);
-      btn.innerHTML = '<span class="spin"></span>Memproses di BigJPG…';
+      btn.innerHTML = '<span class="spin"></span>Memproses…';
       const r = await invoke(FN, { action: 'start', storage_path: path, file_name: file.name, file_type: file.type, scale, style, noise, history_id: id });
-      if (!r.task_id) throw new Error('BigJPG tidak mengembalikan task ID.');
+      if (!r.task_id) throw new Error('Server tidak mengembalikan ID proses.');
       const u = await db.from('riwayat_bigjpg').update({ task_id: String(r.task_id), status: 'processing', updated_at: new Date().toISOString(), error_message: null }).eq('id', id);
       if (u.error) throw u.error;
-      live(id, 'processing', 0, 'BigJPG menerima gambar.');
-      say('Gambar sedang diproses BigJPG. Hasil muncul otomatis di sini.', 'warn');
+      live(id, 'processing', 0, 'Gambar diterima server.');
+      say('Gambar sedang diproses. Hasil muncul otomatis di sini.', 'warn');
       clearTimeout(pollTimer); loadList(); poll(id, String(r.task_id), 0);
     } catch (err) {
       if (id) await db.from('riwayat_bigjpg').update({ status: 'failed', error_message: err.message, updated_at: new Date().toISOString() }).eq('id', id);
@@ -141,11 +141,11 @@ export function mount(host) {
     if (!alive) return;
     if (n >= MAX_POLLS) {
       await db.from('riwayat_bigjpg').update({ status: 'timeout', error_message: 'Belum selesai setelah 30 menit. Gunakan tombol Cek lagi dari riwayat.', updated_at: new Date().toISOString() }).eq('id', id);
-      live(id, 'timeout', n, 'Belum selesai setelah 30 menit.'); say('BigJPG belum selesai setelah 30 menit. Gunakan Cek lagi dari riwayat.', 'warn'); loadList();
+      live(id, 'timeout', n, 'Belum selesai setelah 30 menit.'); say('Proses belum selesai setelah 30 menit. Gunakan Cek lagi dari riwayat.', 'warn'); loadList();
       return;
     }
     try {
-      live(id, 'processing', n, 'Mengecek status BigJPG…');
+      live(id, 'processing', n, 'Mengecek status…');
       const r = await invoke(FN, { action: 'status', task_id: task, history_id: id });
       const st = String(r.status || 'processing').toLowerCase(), url = safeUrl(r.result_url);
       if (st === 'completed' && url) {
@@ -155,7 +155,7 @@ export function mount(host) {
         return;
       }
       if (st === 'failed') {
-        const m = r.error_message || 'BigJPG gagal memproses gambar.';
+        const m = r.error_message || 'Gambar gagal diproses.';
         await db.from('riwayat_bigjpg').update({ status: 'failed', error_message: m, updated_at: new Date().toISOString() }).eq('id', id);
         live(id, 'failed', n, m); say(esc(m), 'error'); loadList();
         return;
@@ -195,16 +195,16 @@ export function mount(host) {
     loadMetrics();
     const box = $('upList'); if (!box) return;
     let q = db.from('riwayat_bigjpg').select('*').order('created_at', { ascending: false }).limit(isAdmin() ? 500 : 100);
-    if (!isAdmin()) q = q.eq('wilayah_id', regionId());
+    if (!isAdmin()) q = q.eq('user_id', state.user.id);
     const { data, error } = await q;
     if (error) { box.innerHTML = notice(esc(error.message), 'error'); return; }
     if (!data?.length) { box.innerHTML = '<div class="empty">Belum ada riwayat upscale.</div>'; return; }
-    box.innerHTML = `<div class="table-wrap"><table><thead><tr>${isAdmin() ? '<th>Wilayah</th>' : ''}<th>File</th><th>Pengguna</th><th>Skala</th><th>Jenis</th><th>Status</th><th>Proses</th><th>Hasil</th><th>Waktu</th></tr></thead><tbody>
+    box.innerHTML = `<div class="table-wrap"><table><thead><tr>${isAdmin() ? '<th>Wilayah</th>' : ''}<th>File</th>${isAdmin() ? '<th>Pengguna</th>' : ''}<th>Skala</th><th>Jenis</th><th>Status</th><th>Proses</th><th>Hasil</th><th>Waktu</th></tr></thead><tbody>
       ${data.map((r) => {
         const st = String(r.status || '').toLowerCase();
         const recheck = r.task_id && (st === 'processing' || st === 'timeout') ? `<button class="btn btn-secondary" data-recheck="${esc(r.id)}" data-task="${esc(r.task_id)}">Cek lagi</button>` : '';
         const link = safeUrl(r.result_url) ? `<a class="btn btn-secondary" href="${esc(safeUrl(r.result_url))}" target="_blank" rel="noopener">${icon('link', 'i i-sm')}Buka</a>` : '';
-        return `<tr>${isAdmin() ? `<td>${esc(regionName(r.wilayah_id))}</td>` : ''}<td>${esc(r.file_name || '-')}</td><td>${esc(r.username || '-')}</td><td class="num">${esc(r.scale || '-')}×</td><td>${r.style === 'photo' ? 'Foto' : 'Artwork'}</td><td>${badge(st)}${r.error_message && st !== 'completed' ? `<div class="xs subtle" style="max-width:220px">${esc(r.error_message)}</div>` : ''}</td><td>${progressHtml(r, 0)}</td><td><div class="row">${link}${recheck}${!link && !recheck ? '-' : ''}</div></td><td class="xs">${esc(fmtDate(r.created_at, regionTz()))}</td></tr>`;
+        return `<tr>${isAdmin() ? `<td>${esc(regionName(r.wilayah_id))}</td>` : ''}<td>${esc(r.file_name || '-')}</td>${isAdmin() ? `<td>${esc(r.username || '-')}</td>` : ''}<td class="num">${esc(r.scale || '-')}×</td><td>${r.style === 'photo' ? 'Foto' : 'Artwork'}</td><td>${badge(st)}${r.error_message && st !== 'completed' ? `<div class="xs subtle" style="max-width:220px">${esc(r.error_message)}</div>` : ''}</td><td>${progressHtml(r, 0)}</td><td><div class="row">${link}${recheck}${!link && !recheck ? '-' : ''}</div></td><td class="xs">${esc(fmtDate(r.created_at, regionTz()))}</td></tr>`;
       }).join('')}</tbody></table></div>`;
     box.querySelectorAll('[data-recheck]').forEach((b) => (b.onclick = async () => {
       b.disabled = true; b.textContent = 'Mengecek…'; clearTimeout(pollTimer);

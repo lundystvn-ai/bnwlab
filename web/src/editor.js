@@ -445,14 +445,14 @@ export function mount(host) {
   async function loadHist() {
     const box = $('histList'); box.innerHTML = '<div class="empty">Memuat…</div>';
     let q = db.from('halftone_image_history').select('id,file_name,operation,image_width,image_height,garment_color,created_at,username').order('created_at', { ascending: false }).limit(20);
-    if (!isAdmin()) q = isManager() ? q.eq('wilayah_id', regionId()) : q.eq('user_id', state.user.id);
+    if (!isAdmin()) q = q.eq('user_id', state.user.id);
     const { data, error } = await q;
     if (error) { box.innerHTML = notice(esc(error.message), 'error'); return; }
     box.innerHTML = data?.length ? data.map((r) => `
       <div class="card" style="padding:8px 10px;display:flex;flex-direction:column;gap:2px">
         <b class="xs" style="overflow-wrap:anywhere">${esc(r.file_name || '-')}</b>
         <span class="xs muted">${esc(E.OPERATION_LABELS[r.operation] || r.operation)} · ${num(r.image_width)}×${num(r.image_height)} px</span>
-        <span class="xs subtle">${esc(fmtDate(r.created_at, regionTz()))}${isManager() ? ' · ' + esc(r.username || '') : ''}</span>
+        <span class="xs subtle">${esc(fmtDate(r.created_at, regionTz()))}${isAdmin() ? ' · ' + esc(r.username || '') : ''}</span>
       </div>`).join('') : '<div class="empty">Belum ada unduhan.</div>';
   }
 

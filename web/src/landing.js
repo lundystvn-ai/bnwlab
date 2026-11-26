@@ -30,7 +30,7 @@ export function renderLanding(view) {
         <div class="cards">
           <article class="card feat"><div class="ic">${icon('scan')}</div><h3>Knockout</h3><p>Hapus hitam, putih, atau warna pilihan jadi transparan. Ada pengambil warna, mode area, toleransi, dan pembanding sebelum/sesudah.</p><div class="meta">Di browser · 3 kredit per unduhan</div></article>
           <article class="card feat"><div class="ic">${icon('halftone')}</div><h3>Raster Halftone</h3><p>Ubah gradasi jadi raster bulat atau garis, 30–60 LPI, dengan sudut garis 15°–60°, supaya tercetak halus di kain.</p><div class="meta">Di browser · 3 kredit per unduhan</div></article>
-          <article class="card feat"><div class="ic">${icon('expand')}</div><h3>Upscale</h3><p>Perbesar gambar kecil 2×, 4×, 8×, atau 16× lewat BigJPG, lengkap dengan progres dan riwayat.</p><div class="meta">Lewat server BigJPG · 1 kredit per gambar</div></article>
+          <article class="card feat"><div class="ic">${icon('expand')}</div><h3>Upscale</h3><p>Perbesar gambar kecil 2×, 4×, 8×, atau 16× dengan AI, lengkap dengan progres dan riwayat.</p><div class="meta">Diproses di server · 1 kredit per gambar</div></article>
         </div>
       </div>
     </section>

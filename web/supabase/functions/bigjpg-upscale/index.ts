@@ -25,11 +25,11 @@ class HttpError extends Error {
 }
 
 const BIGJPG_ERRORS: Record<string, string> = {
-  valid_api_key_required: 'API key BigJPG tidak valid. Periksa pengaturan API key.',
-  requires_vip: 'Akun BigJPG belum berlangganan (API BigJPG khusus member berbayar, 8x/16x khusus VIP).',
-  month_limit: 'Kuota panggilan API BigJPG bulan ini habis.',
-  param_error: 'Parameter ditolak BigJPG (periksa scale/style/noise).',
-  input_url_error: 'BigJPG tidak dapat mengakses gambar. Coba unggah ulang.',
+  valid_api_key_required: 'Layanan upscale sedang bermasalah. Kredit dikembalikan, hubungi admin.',
+  requires_vip: 'Skala ini belum tersedia. Kredit dikembalikan, coba 2× atau 4×.',
+  month_limit: 'Kuota upscale bulan ini sudah habis. Kredit dikembalikan, hubungi admin.',
+  param_error: 'Pengaturan upscale tidak valid. Kredit dikembalikan, coba lagi.',
+  input_url_error: 'Gambar tidak dapat dibaca server. Kredit dikembalikan, coba unggah ulang.',
 };
 
 Deno.serve(async (req) => {
@@ -246,7 +246,7 @@ async function start(admin: Admin, userId: string, b: Record<string, unknown>) {
   const candidates = await usableKeys(admin);
   if (!candidates.length) {
     const any = (await allKeys(admin)).length;
-    throw new HttpError(503, any ? 'Kuota upscale bulan ini sudah habis. Coba lagi bulan depan atau hubungi admin.' : 'Layanan Upscale belum dikonfigurasi (API key BigJPG belum diisi).');
+    throw new HttpError(503, any ? 'Kuota upscale bulan ini sudah habis. Coba lagi bulan depan atau hubungi admin.' : 'Layanan upscale belum aktif. Hubungi admin.');
   }
 
   const { data: signed, error: signErr } = await admin.storage.from(BUCKET).createSignedUrl(storagePath, 3600);
@@ -279,7 +279,7 @@ async function start(admin: Admin, userId: string, b: Record<string, unknown>) {
       if (data?.tid) { tid = String(data.tid); usedKey = k; break; }
       const code = String(data?.status ?? '');
       if (code === 'month_limit') { await markExhausted(admin, k); continue; }   // this account is used up: try the next one
-      throw new HttpError(502, BIGJPG_ERRORS[code] ?? `BigJPG menolak permintaan${code ? ` (${code})` : ''}.`);
+      throw new HttpError(502, BIGJPG_ERRORS[code] ?? `Upscale ditolak server${code ? ` (${code})` : ''}. Kredit dikembalikan.`);
     }
     if (!tid) throw new HttpError(503, 'Kuota upscale bulan ini sudah habis di semua akun. Kredit dikembalikan.');
   } catch (e) {
@@ -287,7 +287,7 @@ async function start(admin: Admin, userId: string, b: Record<string, unknown>) {
     await removeInput(admin, storagePath);
     if (e instanceof HttpError) throw e;
     console.error('bigjpg create', e);
-    throw new HttpError(502, 'Tidak dapat menghubungi BigJPG. Kredit dikembalikan, coba lagi.');
+    throw new HttpError(502, 'Server upscale tidak dapat dihubungi. Kredit dikembalikan, coba lagi.');
   }
 
   await admin.from('riwayat_bigjpg').update({
@@ -310,7 +310,7 @@ async function status(admin: Admin, userId: string, b: Record<string, unknown>) 
 
   const keys = await allKeys(admin);
   const apiKey = (row.key_id && keys.find((k) => k.id === row.key_id)) || keys.find((k) => k.id === null) || keys[0];
-  if (!apiKey) throw new HttpError(503, 'API key BigJPG belum dikonfigurasi.');
+  if (!apiKey) throw new HttpError(503, 'Layanan upscale belum aktif. Hubungi admin.');
 
   const res = await fetch(`${BIGJPG}/api/task/${encodeURIComponent(row.bigjpg_tid)}`, { headers: { 'X-API-KEY': apiKey.key } });
   const data = await res.json().catch(() => null);
@@ -319,7 +319,7 @@ async function status(admin: Admin, userId: string, b: Record<string, unknown>) 
 
   if (st === 'success') {
     const resultUrl = String(task?.url ?? '');
-    if (!/^https:\/\//i.test(resultUrl)) throw new HttpError(502, 'BigJPG tidak mengembalikan URL hasil.');
+    if (!/^https:\/\//i.test(resultUrl)) throw new HttpError(502, 'Server tidak mengembalikan hasil. Coba cek lagi sebentar.');
     await admin.from('riwayat_bigjpg').update({
       status: 'completed', result_url: resultUrl, error_message: null,
       completed_at: new Date().toISOString(), updated_at: new Date().toISOString(),
@@ -328,14 +328,13 @@ async function status(admin: Admin, userId: string, b: Record<string, unknown>) 
     return { status: 'completed', result_url: resultUrl };
   }
   if (st === 'error') {
-    const message = 'BigJPG gagal memproses gambar. Kredit dikembalikan.';
+    const message = 'Gambar gagal diproses. Kredit dikembalikan.';
     await refund(admin, userId, historyId, Number(row.scale));
     await admin.from('riwayat_bigjpg').update({ status: 'failed', error_message: message, updated_at: new Date().toISOString() }).eq('id', historyId);
     await removeInput(admin, row.storage_path);
     return { status: 'failed', error_message: message };
   }
   if (st === 'new' || st === 'process') return { status: 'processing' };
-  const known = BIGJPG_ERRORS[String(data?.status ?? '')];
-  if (known) throw new HttpError(502, known);
+  if (BIGJPG_ERRORS[String(data?.status ?? '')]) throw new HttpError(502, 'Status belum bisa dicek. Coba lagi sebentar.');
   return { status: 'processing' };
 }

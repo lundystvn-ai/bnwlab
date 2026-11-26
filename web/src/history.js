@@ -23,7 +23,7 @@ export function mount(host, opts = {}) {
     const box = $('hList'); if (!box) return;
     box.innerHTML = '<div class="empty">Memuat…</div>';
     let q = db.from('halftone_image_history').select('id,user_id,username,wilayah_id,file_name,operation,image_width,image_height,garment_color,created_at').order('created_at', { ascending: false }).limit(100);
-    if (!isAdmin()) q = isManager() ? q.eq('wilayah_id', regionId()) : q.eq('user_id', state.user.id);
+    if (!isAdmin()) q = q.eq('user_id', state.user.id);
     const { data, error } = await q;
     if (!alive) return;
     if (error) { box.innerHTML = notice(esc(error.message), 'error'); return; }
