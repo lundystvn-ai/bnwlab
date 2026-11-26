@@ -111,6 +111,10 @@ $('signupBtn').onclick = () => authDialog('daftar', '', () => go('editor'));
 $('logoutBtn').onclick = async () => { await signOut(); current = null; go(''); toast(L('Anda sudah keluar.', 'You are signed out.')); };
 $('creditChip').onclick = () => topupDialog();
 
+// Previews show the full result before it is paid for: no "Save image as" / "Copy image" on them.
+document.addEventListener('contextmenu', (e) => { if (e.target.closest('canvas')) e.preventDefault(); });
+document.addEventListener('dragstart', (e) => { if (e.target.closest('canvas')) e.preventDefault(); });
+
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-close]')) closeModal();
   if (e.target.closest('[data-topup]')) { if (state.user) topupDialog(); else authDialog('daftar', '', () => topupDialog()); }

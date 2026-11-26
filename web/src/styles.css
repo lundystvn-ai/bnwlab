@@ -388,3 +388,4 @@ td .row{gap:6px;flex-wrap:nowrap}
 .tabs button{flex:none}
 #vzRange{min-width:240px}
 @media (max-width:760px){#vzRange{width:100%}}
+canvas{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}

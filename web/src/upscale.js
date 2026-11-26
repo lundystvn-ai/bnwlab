@@ -83,7 +83,7 @@ export function mount(host) {
     if (status === 'pending') return 3;
     return Math.min(95, Math.max(8, Math.round(8 + (Math.min(359, Math.max(0, polls)) / 359) * 87)));
   }
-  const LABEL = { uploading: L('Mengunggah gambar', 'Uploading image'), pending: L('Menunggu antrean', 'Waiting in queue'), queued: L('Menunggu antrean', 'Waiting in queue'), processing: L('Memproses gambar', 'Processing image'), running: L('Memproses gambar', 'Processing image'), completed: L('Selesai', 'Done'), failed: L('Gagal', 'Failed'), timeout: L('Belum selesai', 'Not finished') };
+  const LABEL = { uploading: L('Mengunggah gambar', 'Uploading image'), starting: L('Memulai upscale', 'Starting upscale'), pending: L('Menunggu antrean', 'Waiting in queue'), queued: L('Menunggu antrean', 'Waiting in queue'), processing: L('Memproses gambar', 'Processing image'), running: L('Memproses gambar', 'Processing image'), completed: L('Selesai', 'Done'), failed: L('Gagal', 'Failed'), timeout: L('Belum selesai', 'Not finished') };
   function progressHtml(row, polls = 0, note = '') {
     const st = String(row?.status || 'processing').toLowerCase(), p = pct(row, st, polls);
     const cls = st === 'completed' ? 'ok' : st === 'failed' ? 'bad' : st === 'timeout' ? 'warn' : '';
@@ -136,7 +136,7 @@ export function mount(host) {
         if (alive) { clearTimeout(pollTimer); poll(id, '', 0); }
       } else {
         // Not started: no credit was charged (or the server refunded it). Mark only our own draft row.
-        if (id) await db.from('riwayat_bigjpg').update({ status: 'failed', error_message: err.message, updated_at: new Date().toISOString() }).eq('id', id).is('bigjpg_tid', null);
+        if (id) await db.rpc('mark_upscale', { p_id: id, p_status: 'failed', p_msg: err.message });
         if (path) await db.storage.from(BUCKET).remove([path]).catch(() => {});
         if (id) live(id, 'failed', 0, tr(err.message) || L('Upscale gagal.', 'Upscale failed.'));
         say(esc(tr(err.message) || L('Upscale gagal.', 'Upscale failed.')), 'error');
@@ -150,7 +150,7 @@ export function mount(host) {
   async function poll(id, task, n = 0) {
     if (!alive) return;
     if (n >= MAX_POLLS) {
-      await db.from('riwayat_bigjpg').update({ status: 'timeout', error_message: 'Belum selesai setelah 30 menit. Gunakan tombol Cek lagi dari riwayat.', updated_at: new Date().toISOString() }).eq('id', id);
+      await db.rpc('mark_upscale', { p_id: id, p_status: 'timeout', p_msg: 'Belum selesai setelah 30 menit. Gunakan tombol Cek lagi dari riwayat.' });
       live(id, 'timeout', n, L('Belum selesai setelah 30 menit.', 'Not finished after 30 minutes.')); say(L('Proses belum selesai setelah 30 menit. Gunakan Cek lagi dari riwayat.', 'Not finished after 30 minutes. Use Check again in the history.'), 'warn'); loadList();
       return;
     }
