@@ -12,14 +12,19 @@ export function renderLanding(view) {
   <main class="landing" id="landing">
     <div class="wrap hero">
       <div>
-        <span class="eyebrow">${L('Untuk percetakan &amp; kreator DTF', 'For DTF print shops &amp; creators')}</span>
-        <h1>${L('File DTF siap cetak, tanpa ribet.', 'Print-ready DTF files, without the hassle.')}</h1>
-        <p class="lead">${L('Knockout latar, raster halftone, dan upscale dalam satu editor. Knockout dan raster diproses langsung di browser, jadi gambar tidak diunggah.', 'Background knockout, halftone raster and upscaling in one editor. Knockout and raster run right in your browser, so your images are never uploaded.')}</p>
+        <span class="eyebrow">${L('Untuk usaha sablon &amp; percetakan DTF', 'For DTF print shops')}</span>
+        <h1>${L('Punya usaha DTF? Wajib cek file dulu sebelum cetak.', 'Run a DTF business? Check every file before you print.')}</h1>
+        <p class="lead">${L('File pecah, latar belum bersih, atau tepi berbayang baru ketahuan setelah film tercetak. <b>Cek Gambar</b> memeriksanya dalam hitungan detik, <span class="badge-free">GRATIS</span>', 'Low resolution, a dirty background or haloed edges usually show up only after the film is printed. The <b>Image Checker</b> catches them in seconds, <span class="badge-free">FREE</span>')}</p>
+        <ul class="checks">
+          <li>${L('Resolusi (DPI) cukup untuk ukuran cetak', 'Enough resolution (DPI) for the print size')}</li>
+          <li>${L('Latar transparan, tepi tanpa sisa warna &amp; bintik', 'Transparent background, clean edges, no stray specks')}</li>
+          <li>${L('Perbaiki otomatis, lalu unduh PNG siap cetak 300 DPI', 'Fix automatically, then download a print-ready 300 DPI PNG')}</li>
+        </ul>
         <div class="cta">
-          <button class="btn btn-primary btn-xl" data-cta>${L('Buka Halftone', 'Open Halftone')}</button>
-          <a class="btn btn-secondary btn-xl" href="#cek" data-route="cek">${icon('check', 'i i-sm')}${L('Cek file DTF gratis', 'Check a DTF file free')}</a>
+          <a class="btn btn-primary btn-xl" href="#cek" data-route="cek">${icon('check', 'i i-sm')}${L('Cek file gratis', 'Check a file free')}</a>
+          <button class="btn btn-secondary btn-xl" data-cta>${L('Coba buat desain halftone', 'Try a halftone design')}</button>
         </div>
-        <p class="fine small muted">${L('Daftar dan langsung dapat <b>5 kredit gratis</b> untuk mencoba. Pratinjau gratis, unduhan memakai kredit.', 'Sign up and get <b>5 free credits</b> to try it. Previews are free; downloads use credits.')}</p>
+        <p class="fine small muted">${L('Cek file tanpa daftar. Daftar dan dapat <b>5 kredit gratis</b> untuk mencoba unduhan.', 'No sign-up needed to check a file. Sign up and get <b>5 free credits</b> to try downloads.')}</p>
       </div>
       <div class="compare" id="heroCompare" aria-label="${L('Contoh sebelum dan sesudah raster', 'Before and after raster example')}">
         <img class="before" src="/sample-before.jpg" alt="" draggable="false">

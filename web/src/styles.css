@@ -359,6 +359,8 @@ td .row{gap:6px;flex-wrap:nowrap}
 .chk-canvas{position:relative}
 .chk-busy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;background:color-mix(in srgb,var(--color-bg) 72%,transparent);font-size:var(--text-sm);font-weight:600}
 .chk-meta{flex-wrap:wrap;gap:4px}
-.menu a.menu-hl{color:var(--color-accent-text,var(--color-accent));font-weight:600;display:inline-flex;align-items:center;gap:6px;background:var(--color-accent-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-accent) 35%,transparent)}
-.menu a.menu-hl:hover,.menu a.menu-hl[aria-current=page]{background:color-mix(in srgb,var(--color-accent) 22%,transparent);color:var(--color-accent-text,var(--color-accent))}
-.menu .hl-tag{font-size:9px;font-weight:800;letter-spacing:.06em;line-height:1;padding:3px 5px;border-radius:999px;background:var(--color-accent);color:var(--color-on-accent,#fff)}
+
+.hero .badge-free{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.04em;padding:2px 8px;border-radius:999px;background:var(--color-accent);color:var(--color-on-accent,#fff);vertical-align:2px;line-height:1.4}
+.hero .checks{list-style:none;padding:0;margin:0 0 24px;display:grid;gap:6px;font-size:var(--text-sm);color:var(--color-text-muted)}
+.hero .checks li{display:flex;gap:8px;align-items:center}
+.hero .checks li::before{content:"✓";color:var(--color-success,var(--color-accent));font-weight:800}
