@@ -76,6 +76,15 @@ function syncHeader() {
   $('userName').textContent = state.profile?.username || '';
 }
 onSession(syncHeader);
+// Re-draw the app (and its admin menu) whenever the signed-in account or its role changes,
+// so the Admin menu never lingers for a non-admin account.
+let lastAccess = '';
+onSession(() => {
+  const access = state.user ? state.user.id + ':' + (state.profile?.user_role || '') : '';
+  if (access === lastAccess) return;
+  lastAccess = access;
+  if (current && current !== 'landing') { unmount?.(); unmount = null; current = null; render(); }
+});
 
 function syncTheme() {
   const light = document.documentElement.dataset.theme === 'light';

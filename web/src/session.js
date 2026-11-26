@@ -2,6 +2,7 @@
 import { db, onAfterInvoke } from './supa.js';
 import { cfg } from './config.js';
 import { $, esc, rupiah, openModal, closeModal, notice } from './util.js';
+import { leakedCount, leakedMessage } from './pwned.js';
 
 export const state = {
   user: null,
@@ -99,6 +100,8 @@ export function authDialog(mode = 'masuk', email = '', after) {
       ({ error } = await db.auth.signInWithOtp({ email: em, options: { emailRedirectTo: redirectTo() } }));
       okMsg = `Link masuk dikirim ke <b>${esc(em)}</b>. Buka email lalu klik link-nya.`;
     } else if (daftar) {
+      const leaked = await leakedCount($('pwPass').value);
+      if (leaked) { btn.disabled = false; btn.textContent = label; $('pwMsg').innerHTML = notice(leakedMessage(leaked), 'error'); return; }
       const r = await db.auth.signUp({ email: em, password: $('pwPass').value, options: { emailRedirectTo: redirectTo(), data: { name: $('pwName').value.trim() } } });
       error = r.error; session = r.data?.session;
       okMsg = `Akun dibuat. Cek email <b>${esc(em)}</b> dan klik link konfirmasi, lalu masuk.`;
@@ -161,6 +164,8 @@ export function newPasswordDialog(after) {
     </form>`);
   $('npForm').onsubmit = async (e) => {
     e.preventDefault();
+    const leaked = await leakedCount($('npPass').value);
+    if (leaked) { $('npMsg').innerHTML = notice(leakedMessage(leaked), 'error'); return; }
     const { error } = await db.auth.updateUser({ password: $('npPass').value });
     if (error) { $('npMsg').innerHTML = notice(esc(error.message), 'error'); return; }
     $('npMsg').innerHTML = notice('Password disimpan. Mulai sekarang bisa masuk dengan email + password.', 'ok');
