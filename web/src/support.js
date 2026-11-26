@@ -37,7 +37,7 @@ export function mount(host) {
         <section class="card stack">
           <h2 style="margin:0">${L('Hubungi cepat', 'Quick contact')}</h2>
           ${waHref ? `<a class="btn btn-primary btn-lg btn-block" href="${esc(waHref)}" target="_blank" rel="noopener">${icon('chat', 'i i-sm')}${L('Chat admin via WhatsApp', 'Chat with the admin on WhatsApp')}</a>` : `<p class="small muted" style="margin:0">${L('Kirim pesan lewat form di halaman ini.', 'Send a message with the form on this page.')}</p>`}
-          <a class="btn btn-secondary btn-lg btn-block" href="https://www.instagram.com/bnwlab.id" target="_blank" rel="noopener">Instagram @bnwlab.id</a>
+          <a class="btn btn-secondary btn-lg btn-block" href="https://www.instagram.com/bnwlab.studio" target="_blank" rel="noopener">Instagram @bnwlab.studio</a>
           <a class="btn btn-secondary btn-lg btn-block" href="#faq" data-route="faq">${L('Lihat pertanyaan umum (FAQ)', 'Read the FAQ')}</a>
         </section>
         <section class="card stack">
