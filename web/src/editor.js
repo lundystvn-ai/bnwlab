@@ -85,7 +85,7 @@ export function mount(host) {
         <div class="pfoot">
           <div class="status-msg" id="msg" role="status" aria-live="polite"></div>
           <div class="row"><button class="btn btn-secondary" id="undo" disabled>${icon('undo', 'i i-sm')}Undo</button><button class="btn btn-secondary" id="reset" disabled>${icon('reset', 'i i-sm')}Reset</button></div>
-          <button class="btn btn-primary btn-lg" id="dl" disabled>${icon('download', 'i i-sm')}${T('Unduh PNG', 'Download PNG')} <span class="cost">· ${T('3 kredit', '3 credits')}</span></button>
+          <button class="btn btn-primary btn-lg" id="dl" disabled>${icon('download', 'i i-sm')}${T('Unduh PNG', 'Download PNG')} <span class="cost">· ${T('2 kredit', '2 credits')}</span></button>
         </div>
       </div>
       <div id="tabHist" hidden style="padding:12px;display:flex;flex-direction:column;gap:8px">
@@ -413,7 +413,7 @@ export function mount(host) {
     try {
       const { data, error } = await db.rpc('consume_credit', { p_ref: uuid() });
       if (error) {
-        if (/insufficient_credits/.test(error.message)) topupDialog(T('Kredit tidak cukup. Satu unduhan PNG memakai 3 kredit.', 'Not enough credits. One PNG download uses 3 credits.'));
+        if (/insufficient_credits/.test(error.message)) topupDialog(T('Kredit tidak cukup. Satu unduhan PNG memakai 2 kredit.', 'Not enough credits. One PNG download uses 2 credits.'));
         else if (/not_authenticated/.test(error.message)) { clearSession(); authDialog('masuk'); }
         else say(T('Gagal memotong kredit: ', 'Could not charge credits: ') + esc(tr(error.message)), 'error');
         return;

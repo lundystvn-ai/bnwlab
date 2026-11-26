@@ -4,7 +4,7 @@ import { L, pkgName, pkgNote } from './i18n.js';
 
 export function renderLanding(view) {
   const perCredit = state.packages.map((x) => x.harga / x.kredit);
-  const fromPrice = rupiah(Math.floor((Math.min(...perCredit) * 3) / 100) * 100);
+  const fromPrice = rupiah(Math.floor((Math.min(...perCredit) * 2) / 100) * 100);
   const bestSave = Math.max(0, ...state.packages.map(save));
   const studio = state.packages[state.packages.length - 1];
   view.innerHTML = `
@@ -33,8 +33,8 @@ export function renderLanding(view) {
         <h2>${L('Tiga alat, satu alur kerja', 'Three tools, one workflow')}</h2>
         <p class="sub">${L('Semua yang dibutuhkan untuk menyiapkan file sebelum masuk RIP.', 'Everything you need to prepare a file before it goes to the RIP.')}</p>
         <div class="cards">
-          <article class="card feat"><div class="ic">${icon('scan')}</div><h3>Knockout</h3><p>${L('Hapus hitam, putih, atau warna pilihan jadi transparan. Ada pengambil warna, mode area, toleransi, dan pembanding sebelum/sesudah.', 'Turn black, white or any colour you pick transparent. Includes a colour picker, area mode, tolerance and a before/after slider.')}</p><div class="meta">${L('Di browser · 3 kredit per unduhan', 'In your browser · 3 credits per download')}</div></article>
-          <article class="card feat"><div class="ic">${icon('halftone')}</div><h3>${L('Raster Halftone', 'Halftone Raster')}</h3><p>${L('Ubah gradasi jadi raster bulat atau garis, 30–60 LPI, dengan sudut garis 15°–60°, supaya tercetak halus di kain.', 'Turn gradients into round or line halftones, 30–60 LPI, with line angles from 15° to 60°, so they print smoothly on fabric.')}</p><div class="meta">${L('Di browser · 3 kredit per unduhan', 'In your browser · 3 credits per download')}</div></article>
+          <article class="card feat"><div class="ic">${icon('scan')}</div><h3>Knockout</h3><p>${L('Hapus hitam, putih, atau warna pilihan jadi transparan. Ada pengambil warna, mode area, toleransi, dan pembanding sebelum/sesudah.', 'Turn black, white or any colour you pick transparent. Includes a colour picker, area mode, tolerance and a before/after slider.')}</p><div class="meta">${L('Di browser · 2 kredit per unduhan', 'In your browser · 2 credits per download')}</div></article>
+          <article class="card feat"><div class="ic">${icon('halftone')}</div><h3>${L('Raster Halftone', 'Halftone Raster')}</h3><p>${L('Ubah gradasi jadi raster bulat atau garis, 30–60 LPI, dengan sudut garis 15°–60°, supaya tercetak halus di kain.', 'Turn gradients into round or line halftones, 30–60 LPI, with line angles from 15° to 60°, so they print smoothly on fabric.')}</p><div class="meta">${L('Di browser · 2 kredit per unduhan', 'In your browser · 2 credits per download')}</div></article>
           <article class="card feat"><div class="ic">${icon('expand')}</div><h3>Upscale</h3><p>${L('Perbesar gambar kecil 2×, 4×, 8×, atau 16× dengan AI, lengkap dengan progres dan riwayat.', 'Enlarge small images 2×, 4×, 8× or 16× with AI, with live progress and history.')}</p><div class="meta">${L('Diproses di server · 1 kredit per gambar', 'Processed on our server · 1 credit per image')}</div></article>
         </div>
       </div>
@@ -55,8 +55,8 @@ export function renderLanding(view) {
     <section class="section alt" id="harga">
       <div class="wrap">
         <h2>${L(`Desain siap cetak mulai ${fromPrice}`, `Print-ready designs from ${fromPrice}`)}</h2>
-        <p class="sub">${L(`Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: Raster/Knockout 3 kredit, Upscale 1 kredit. Kredit tidak pernah hangus${bestSave ? `, dan paket ${esc(pkgName(studio))} hemat sampai ${bestSave}% per kredit` : ''}.`,
-          `Adjust and preview as much as you like, for free. Credits are only used when you download: Raster/Knockout 3 credits, Upscale 1 credit. Credits never expire${bestSave ? `, and the ${esc(pkgName(studio))} pack saves up to ${bestSave}% per credit` : ''}.`)}</p>
+        <p class="sub">${L(`Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: Raster/Knockout 2 kredit, Upscale 1 kredit. Kredit tidak pernah hangus${bestSave ? `, dan paket ${esc(pkgName(studio))} hemat sampai ${bestSave}% per kredit` : ''}.`,
+          `Adjust and preview as much as you like, for free. Credits are only used when you download: Raster/Knockout 2 credits, Upscale 1 credit. Credits never expire${bestSave ? `, and the ${esc(pkgName(studio))} pack saves up to ${bestSave}% per credit` : ''}.`)}</p>
         <div class="prices" id="prices">${pricing()}</div>
       </div>
     </section>
@@ -93,7 +93,7 @@ export function pricing() {
       <div class="row"><b>${esc(pkgName(p))}</b>${p.populer ? `<span class="badge b-accent" style="margin-left:auto">${L('Terlaris', 'Most popular')}</span>` : ''}</div>
       <div class="amt">${rupiah(p.harga)}</div>
       <div class="muted small">${L(`${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit`, `${p.kredit} credits · ${rupiah(Math.round(p.harga / p.kredit))}/credit`)}${save(p) ? ` · <b class="save">${L('hemat', 'save')} ${save(p)}%</b>` : ''}</div>
-      <ul><li>${icon('check')}<span>${L(`<b>± ${Math.floor(p.kredit / 3)} desain</b> Raster/Knockout <span class="muted">atau ${p.kredit} upscale</span>`, `<b>± ${Math.floor(p.kredit / 3)} designs</b> Raster/Knockout <span class="muted">or ${p.kredit} upscales</span>`)}</span></li><li>${icon('check')}${esc(pkgNote(p) || L('Untuk semua alat', 'For every tool'))}</li><li>${icon('check')}${L('Kredit tidak hangus', 'Credits never expire')}</li></ul>
+      <ul><li>${icon('check')}<span>${L(`<b>± ${Math.floor(p.kredit / 2)} desain</b> Raster/Knockout <span class="muted">atau ${p.kredit} upscale</span>`, `<b>± ${Math.floor(p.kredit / 2)} designs</b> Raster/Knockout <span class="muted">or ${p.kredit} upscales</span>`)}</span></li><li>${icon('check')}${esc(pkgNote(p) || L('Untuk semua alat', 'For every tool'))}</li><li>${icon('check')}${L('Kredit tidak hangus', 'Credits never expire')}</li></ul>
       <button class="btn ${p.populer ? 'btn-primary' : 'btn-secondary'} btn-lg" data-topup>${L('Pilih', 'Choose')} ${esc(pkgName(p))}</button>
     </div>`).join('');
 }
