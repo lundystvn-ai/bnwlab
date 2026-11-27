@@ -59,8 +59,9 @@ export function tr(msg) {
 }
 
 // Package names/notes are stored in Indonesian in the database.
-const PKG_NAME = { hemat: 'Saver' };
+const PKG_NAME = { coba: 'Try', hemat: 'Saver' };
 const PKG_NOTE = {
+  'Cicip dulu, cukup untuk beberapa unduhan': 'A taste first, enough for a few downloads',
   'Coba dulu untuk pesanan kecil': 'Try it on small orders',
   'Pas untuk beberapa pesanan': 'Good for a few orders',
   'Pas untuk produksi rutin': 'For regular production',
