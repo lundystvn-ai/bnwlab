@@ -322,7 +322,8 @@ export function mount(host) {
         ${data.map((u) => `<tr><td><b>${esc(u.username || '-')}</b><div class="xs subtle">${esc(u.email || '')}</div></td>
           <td><select class="sel" data-role="${esc(u.id)}" aria-label="Peran ${esc(u.username || '')}" ${u.id === state.user.id ? 'disabled' : ''}>${['user', 'supervisor', 'admin'].map((r) => `<option value="${r}"${u.user_role === r ? ' selected' : ''}>${r}</option>`).join('')}</select></td>
           <td class="num mono">${num(u.credits)}</td><td class="xs">${esc(fmtDate(u.created_at))}</td><td class="xs">${u.last_sign_in_at ? esc(fmtDate(u.last_sign_in_at)) : '-'}</td>
-          <td><button class="btn btn-secondary" data-adj="${esc(u.id)}">${icon('coins', 'i i-sm')}Ubah kredit</button></td></tr>`).join('')}</tbody></table></div>`;
+          <td style="white-space:nowrap"><button class="btn btn-secondary" data-adj="${esc(u.id)}">${icon('coins', 'i i-sm')}Ubah kredit</button>${u.id === state.user.id || u.user_role === 'admin' ? '' : ` <button class="btn btn-quiet" data-del="${esc(u.id)}" aria-label="Hapus akun ${esc(u.email || '')}">Hapus</button>`}</td></tr>`).join('')}</tbody></table></div>`;
+      box.querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => removeUser(data.find((x) => x.id === b.dataset.del), load)));
       box.querySelectorAll('[data-adj]').forEach((b) => (b.onclick = () => adjust(data.find((x) => x.id === b.dataset.adj), load)));
       box.querySelectorAll('[data-role]').forEach((s) => (s.onchange = async () => {
         const u = data.find((x) => x.id === s.dataset.role);
@@ -333,6 +334,20 @@ export function mount(host) {
     };
     $('uGo').onclick = load; $('uSearch').onkeydown = (e) => { if (e.key === 'Enter') load(); };
     load();
+  }
+  async function removeUser(u, reload) {
+    if (!(await confirmBox({ title: 'Hapus akun ini?', body: `<b>${esc(u.email || u.username || '-')}</b> beserta kredit (${num(u.credits)}), riwayat, dan tiketnya akan dihapus permanen. Email yang sama bisa mendaftar lagi sebagai akun baru.`, okLabel: 'Hapus akun', danger: true }))) return;
+    let { error } = await db.rpc('admin_delete_user', { p_user: u.id, p_force: false });
+    if (error && /has_paid_payments:(\d+)/.test(error.message)) {
+      const total = Number(/has_paid_payments:(\d+)/.exec(error.message)[1]);
+      if (!(await confirmBox({ title: 'Akun ini pernah membayar', body: `Total pembayaran lunas <b>${rupiah(total)}</b>. Catatan pembayarannya diarsipkan dulu, lalu akun dihapus. Lanjutkan?`, okLabel: 'Tetap hapus', danger: true }))) return;
+      ({ error } = await db.rpc('admin_delete_user', { p_user: u.id, p_force: true }));
+    }
+    if (error) {
+      const m = /cannot_delete_self/.test(error.message) ? 'Tidak bisa menghapus akun sendiri.' : /cannot_delete_admin/.test(error.message) ? 'Akun admin tidak bisa dihapus dari sini. Ubah perannya dulu.' : /user_not_found/.test(error.message) ? 'Akun tidak ditemukan.' : missingFn(error) ? MIGRATION_NOTE : error.message;
+      toast(m, 'error'); return;
+    }
+    toast('Akun dihapus.'); reload();
   }
   function adjust(u, reload) {
     openModal(`<h3>Ubah kredit</h3><p class="muted">${esc(u.username || '-')} · ${esc(u.email || '')} · saldo <b class="mono">${num(u.credits)}</b></p>
