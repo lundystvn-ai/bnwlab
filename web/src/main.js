@@ -6,6 +6,7 @@ import { renderLanding, pricing } from './landing.js';
 import { heroPromo } from './session.js';
 import { lang, L, setLang } from './i18n.js';
 import { track, excludeThisDevice } from './track.js';
+import { cfg } from './config.js';
 
 
 // After a new deploy, a tab opened earlier still points at renamed chunks. Reload once to pick up the new build.
@@ -15,8 +16,8 @@ window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); reload
 window.addEventListener('unhandledrejection', (e) => { if (staleChunk(e.reason && e.reason.message)) reloadOnce(); });
 window.addEventListener('load', () => setTimeout(() => { try { sessionStorage.removeItem('bnw-reload'); } catch {} }, 5000));
 
-const APP_ROUTES = ['editor', 'vektor', 'gangsheet', 'upscale', 'kredit', 'admin', 'support', 'cek'];
-const OPEN_ROUTES = ['support', 'cek', 'vektor', 'gangsheet', 'editor', 'upscale'];   // app pages that guests may open too
+const APP_ROUTES = ['editor', 'vektor', 'gangsheet', 'ai', 'upscale', 'kredit', 'admin', 'support', 'cek'];
+const OPEN_ROUTES = ['support', 'cek', 'vektor', 'gangsheet', 'ai', 'editor', 'upscale'];   // app pages that guests may open too
 const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];
 const LEGAL_ROUTES = ['privasi', 'ketentuan'];
 const BASE_TITLE = document.title;
@@ -60,6 +61,7 @@ async function render() {
       : route === 'cek' ? await import('./check.js')
       : route === 'vektor' ? await import('./vector.js')
       : route === 'gangsheet' ? await import('./gangsheet.js')
+      : route === 'ai' ? await import('./ai.js')
       : await import('./admin.js');
     unmount = mod.mount(host) || null; currentMod = mod;
     if (isAdmin()) Promise.all([db.rpc('admin_stats'), db.from('support_tickets').select('id', { count: 'exact', head: true }).eq('status', 'baru')])
@@ -93,6 +95,7 @@ function syncHeader() {
   if (isAdmin()) excludeThisDevice();
   $('userBox').hidden = !state.user; $('logoutBtn').hidden = !state.user;
   $('userName').textContent = state.profile?.username || '';
+  const ai = document.querySelector('.menu [data-route="ai"]'); if (ai) ai.hidden = !(cfg.aiEnabled || isAdmin());
 }
 onSession(syncHeader);
 onSession(() => { const p = $('prices'); if (p) p.innerHTML = pricing(); const h = $('heroPromo'); if (h) h.innerHTML = heroPromo(); });
@@ -163,6 +166,7 @@ applyStaticText();
 (async function boot() {
   syncTheme();
   try { await Promise.all([loadPackages(), loadSettings()]); } catch {}
+  syncHeader();
   const { data } = await db.auth.getSession();
   if (data?.session) await applySession(data.session);
   db.auth.onAuthStateChange((event, session) => {

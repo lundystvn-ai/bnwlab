@@ -256,6 +256,7 @@ export async function loadSettings() {
     if (r.key === 'pay_mode') cfg.payMode = r.value;
     if (r.key === 'promo_welcome_pct') cfg.promoPct = Number(r.value) || 0;
     if (r.key === 'promo_welcome_hours') cfg.promoHours = Number(r.value) || 24;
+    if (r.key === 'ai_enabled') cfg.aiEnabled = r.value === '1';
   }
 }
 

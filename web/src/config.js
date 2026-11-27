@@ -18,6 +18,7 @@ const defaults = {
     { id: 'studio', nama: 'Studio', kredit: 600, harga: 300000, catatan: 'Untuk studio / banyak desain' },
   ],
   kontakWhatsApp: '',
+  aiEnabled: false,
   qrisStatic: '00020101021126610014COM.GO-JEK.WWW01189360091436811269360210G6811269360303UMI51440014ID.CO.QRIS.WWW0215ID10264964273150303UMI5204739353033605802ID5925bnwlabstudio, Jasa Keaman6013TEBING TINGGI61052063162070703A0163041323',
   kontakEmail: '',
 };
