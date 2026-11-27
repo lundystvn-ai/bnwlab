@@ -269,7 +269,7 @@ export function raster(src, { kind, lpi, angle, blackGarment, onProgress, dots =
 }
 
 export const OPERATION_LABELS = {
-  original: 'Original', cleanup: 'Perbaikan file', vector: 'Vektor SVG',
+  original: 'Original', cleanup: 'Perbaikan file', vector: 'Vektor SVG', gangsheet: 'Gangsheet',
   knockout_black: 'Knockout Black', knockout_white: 'Knockout White', knockout_color: 'Knockout Warna',
   raster_round: 'Raster Bulat', raster_line: 'Raster Garis',
   raster_round_knockout_black: 'Raster Bulat + Knockout Black', raster_round_knockout_white: 'Raster Bulat + Knockout White',

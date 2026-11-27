@@ -36,12 +36,13 @@ export function renderLanding(view) {
 
     <section class="section alt" id="fitur">
       <div class="wrap">
-        <h2>${L('Empat alat, satu alur kerja', 'Four tools, one workflow')}</h2>
+        <h2>${L('Lima alat, satu alur kerja', 'Five tools, one workflow')}</h2>
         <p class="sub">${L('Semua yang dibutuhkan untuk menyiapkan file sebelum masuk RIP.', 'Everything you need to prepare a file before it goes to the RIP.')}</p>
-        <div class="cards c4">
+        <div class="cards c5">
           <article class="card feat"><div class="ic">${icon('check')}</div><h3>${L('Cek Gambar', 'Image Checker')}</h3><p>${L('Periksa resolusi, latar, tepi berbayang, dan bintik sebelum cetak, lalu perbaiki otomatis atau dengan pipet.', 'Check resolution, background, haloed edges and specks before printing, then fix them automatically or with the eyedropper.')}</p><div class="meta">${L('Cek gratis · 1 kredit per unduhan', 'Free check · 1 credit per download')}</div></article>
           <article class="card feat"><div class="ic">${icon('halftone')}</div><h3>Halftone</h3><p>${L('Raster bulat atau garis 30–60 LPI dan knockout hitam, putih, atau warna pilihan, supaya gradasi tercetak halus di kain.', 'Round or line rasters at 30–60 LPI plus black, white or custom-colour knockout, so gradients print smoothly on fabric.')}</p><div class="meta">${L('Di browser · 2 kredit per unduhan', 'In your browser · 2 credits per download')}</div></article>
           <article class="card feat"><div class="ic">${icon('pen')}</div><h3>${L('Vektor', 'Vector')}</h3><p>${L('Ubah logo dan desain warna rata jadi SVG berkurva yang tetap tajam di ukuran berapa pun.', 'Turn logos and flat-colour designs into a curve-based SVG that stays sharp at any size.')}</p><div class="meta">${L('Di browser · 1 kredit per unduhan', 'In your browser · 1 credit per download')}</div></article>
+          <article class="card feat"><div class="ic">${icon('sheet')}</div><h3>Gangsheet</h3><p>${L('Susun banyak desain di satu roll film otomatis, termasuk mengikuti bentuk logo supaya film lebih hemat, lalu ekspor PNG/PDF ukuran asli.', 'Arrange many designs on one roll of film automatically, even following logo shapes to save film, then export PNG/PDF at real size.')}</p><div class="meta">${L('Di browser · 1 kredit per meter film', 'In your browser · 1 credit per metre of film')}</div></article>
           <article class="card feat"><div class="ic">${icon('expand')}</div><h3>Upscale</h3><p>${L('Perbesar gambar kecil 2×, 4×, 8×, atau 16× dengan AI, lengkap dengan progres dan riwayat.', 'Enlarge small images 2×, 4×, 8× or 16× with AI, with live progress and history.')}</p><div class="meta">${L('Diproses di server · 1 kredit per gambar', 'Processed on our server · 1 credit per image')}</div></article>
         </div>
       </div>
@@ -62,8 +63,8 @@ export function renderLanding(view) {
     <section class="section alt" id="harga">
       <div class="wrap">
         <h2>${L(`Desain siap cetak mulai ${fromPrice}`, `Print-ready designs from ${fromPrice}`)}</h2>
-        <p class="sub">${L(`Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: file siap cetak dari Cek Gambar 1 kredit, Raster/Knockout 2 kredit, SVG dari Vektor 1 kredit, Upscale 1 kredit. Kredit tidak pernah hangus${bestSave ? `, dan paket ${esc(pkgName(studio))} hemat sampai ${bestSave}% per kredit` : ''}.`,
-          `Adjust and preview as much as you like, for free. Credits are only used when you download: a print-ready file from the Image Checker 1 credit, Raster/Knockout 2 credits, an SVG from Vector 1 credit, Upscale 1 credit. Credits never expire${bestSave ? `, and the ${esc(pkgName(studio))} pack saves up to ${bestSave}% per credit` : ''}.`)}</p>
+        <p class="sub">${L(`Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: file siap cetak dari Cek Gambar 1 kredit, Raster/Knockout 2 kredit, SVG dari Vektor 1 kredit, Gangsheet 1 kredit per meter film, Upscale 1 kredit. Kredit tidak pernah hangus${bestSave ? `, dan paket ${esc(pkgName(studio))} hemat sampai ${bestSave}% per kredit` : ''}.`,
+          `Adjust and preview as much as you like, for free. Credits are only used when you download: a print-ready file from the Image Checker 1 credit, Raster/Knockout 2 credits, an SVG from Vector 1 credit, Gangsheet 1 credit per metre of film, Upscale 1 credit. Credits never expire${bestSave ? `, and the ${esc(pkgName(studio))} pack saves up to ${bestSave}% per credit` : ''}.`)}</p>
         <div class="prices" id="prices">${pricing()}</div>
       </div>
     </section>

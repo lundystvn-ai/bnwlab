@@ -6,8 +6,8 @@ import { renderLanding, pricing } from './landing.js';
 import { lang, L, setLang } from './i18n.js';
 import { track, excludeThisDevice } from './track.js';
 
-const APP_ROUTES = ['editor', 'vektor', 'upscale', 'kredit', 'admin', 'support', 'cek'];
-const OPEN_ROUTES = ['support', 'cek', 'vektor', 'editor', 'upscale'];   // app pages that guests may open too
+const APP_ROUTES = ['editor', 'vektor', 'gangsheet', 'upscale', 'kredit', 'admin', 'support', 'cek'];
+const OPEN_ROUTES = ['support', 'cek', 'vektor', 'gangsheet', 'editor', 'upscale'];   // app pages that guests may open too
 const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];
 const LEGAL_ROUTES = ['privasi', 'ketentuan'];
 const BASE_TITLE = document.title;
@@ -50,6 +50,7 @@ async function render() {
       : route === 'support' ? await import('./support.js')
       : route === 'cek' ? await import('./check.js')
       : route === 'vektor' ? await import('./vector.js')
+      : route === 'gangsheet' ? await import('./gangsheet.js')
       : await import('./admin.js');
     unmount = mod.mount(host) || null; currentMod = mod;
     if (isAdmin()) Promise.all([db.rpc('admin_stats'), db.from('support_tickets').select('id', { count: 'exact', head: true }).eq('status', 'baru')])
