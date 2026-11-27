@@ -271,9 +271,25 @@ export async function removeColor(a, hex, tolerance, everywhere = false) {
   ctx.putImageData(data, 0, 0);
   const old = cropOf(a), next = await analyse(await readData(await blobOf(c)), a.name, { dpi: a.fileDpi });
   // Trim the now-transparent border so it takes no film; the print scale stays the same.
+  // The original image and the edits are kept, so a project file can carry the original instead of the result.
   next.id = a.id; next.trim = true;
+  next.orig = a.orig || a.src;
+  next.edits = [...(a.edits || []), { hex, tol: tolerance, all: !!everywhere }];
   const after = cropOf(next);
   next.w = (a.w * after.w) / old.w; next.h = (a.h * after.h) / old.h;
   c.width = c.height = 1;
   return next;
+}
+
+// Re-apply saved colour edits to an original image (used when a project file is opened).
+export async function applyEdits(a) {
+  const im = await imageFor({ src: a.orig || a.src, name: a.name }), w = im.naturalWidth, h = im.naturalHeight;
+  const c = canvas(w, h), ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(im, 0, 0);
+  const data = ctx.getImageData(0, 0, w, h);
+  for (const e of a.edits) knockColor(data.data, w, h, e.hex, e.tol, e.all);
+  ctx.putImageData(data, 0, 0);
+  const done = await analyse(await readData(await blobOf(c)), a.name, { dpi: a.fileDpi });
+  c.width = c.height = 1;
+  return { ...a, src: done.src, orig: a.orig || a.src, bounds: done.bounds, fullMask: done.fullMask, trimMask: done.trimMask };
 }

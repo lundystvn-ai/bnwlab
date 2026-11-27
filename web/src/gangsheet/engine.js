@@ -330,6 +330,11 @@ export function validateJob(raw) {
       && a.bounds.x >= 0 && a.bounds.y >= 0 && a.bounds.w >= 1 && a.bounds.h >= 1 && a.bounds.x + a.bounds.w <= a.sw + ep && a.bounds.y + a.bounds.h <= a.sh + ep;
     if (!ok) throw new Error('project');
     for (const m of [a.fullMask, a.trimMask]) if (m && !isMask(m)) throw new Error('project');
+    if (a.edits !== undefined) {
+      const okEdits = Array.isArray(a.edits) && a.edits.length <= 20 && a.edits.every((e) => e && /^#[0-9a-f]{6}$/i.test(e.hex) && Number.isFinite(e.tol) && e.tol >= 0 && e.tol <= 100 && typeof e.all === 'boolean');
+      if (!okEdits) throw new Error('project');
+    }
+    if (a.orig !== undefined && !/^data:image\/(png|jpeg|webp|svg\+xml);base64,/i.test(a.orig)) throw new Error('project');
     ids.add(a.id);
     j.arts.push({ ...a, name: String(a.name || 'Desain').slice(0, 140) });
   }

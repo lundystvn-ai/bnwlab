@@ -8,7 +8,7 @@ import { state, authDialog, topupDialog, setCredits, regionId, clearSession } fr
 import {
   DEFAULTS, MAX_COPIES, newJob, uid, box, cropOf, normalAngle, effectiveDpi, mmToPx, pack, fillPage, pagesOf, inspect, validateJob, validateSettings, exportCost,
 } from './gangsheet/engine.js';
-import { readArtwork, makeText, removeColor, knockColor, edgeColor, imageFor, releaseUnused } from './gangsheet/media.js';
+import { readArtwork, makeText, removeColor, knockColor, edgeColor, applyEdits, imageFor, releaseUnused } from './gangsheet/media.js';
 
 // ---------- state kept between page visits ----------
 const G = {
@@ -703,7 +703,9 @@ export function mount(host) {
   }
   async function exportProject() {
     const { download, safeName } = await import('./gangsheet/export.js');
-    download(new Blob([JSON.stringify(G.job)], { type: 'application/json' }), safeName(G.job.name) + '.gangsheet.json');
+    // Edited designs are saved as the original image plus the edit settings, not the edited result.
+    const arts = G.job.arts.map(({ orig, ...a }) => (a.edits?.length && orig ? { ...a, src: orig } : a));
+    download(new Blob([JSON.stringify({ ...G.job, arts })], { type: 'application/json' }), safeName(G.job.name) + '.gangsheet.json');
   }
   async function loadProject(file) {
     if (!file) return;
@@ -715,6 +717,7 @@ export function mount(host) {
         progress(L('Memeriksa ', 'Checking ') + a.name, n / next.arts.length);
         const im = await imageFor(a);
         if (im.naturalWidth !== a.sw || im.naturalHeight !== a.sh) throw new Error('project');
+        if (a.edits?.length) next.arts[n] = await applyEdits({ ...a, orig: a.src });
       }
       G.pageIndex = 0; G.zoom = 1; commit(next, next.items[0]?.id); toast(L('Proyek dibuka.', 'Project opened.'));
     });
