@@ -4,6 +4,7 @@ import { db, invoke } from './supa.js';
 import { $, esc, icon, notice, uuid, fmtDate, num } from './util.js';
 import { state, isAdmin, regionId, regionTz, regionName, refreshCredits, authDialog } from './session.js';
 import { L, tr } from './i18n.js';
+import { takeHandoff } from './handoff.js';
 
 const BUCKET = 'bigjpg-inputs';
 const FN = 'bigjpg-upscale';
@@ -256,6 +257,7 @@ export function mount(host) {
     poll(row.id, String(row.task_id || ''), 0);
   }
   resume();
+  const handed = takeHandoff(); if (handed) pick(handed);
 
   // A guest just signed in: show their history and costs without losing the chosen image.
   signInHook = () => {

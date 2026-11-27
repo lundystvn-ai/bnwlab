@@ -2,12 +2,14 @@ import { esc, rupiah, icon } from './util.js';
 import { state } from './session.js';
 import { L, pkgName, pkgNote } from './i18n.js';
 import { footer } from './legal.js';
+import { cfg } from './config.js';
 
 export function renderLanding(view) {
   const perCredit = state.packages.map((x) => x.harga / x.kredit);
   const fromPrice = rupiah(Math.floor(Math.min(...perCredit) / 100) * 100);
   const bestSave = Math.max(0, ...state.packages.map(save));
   const studio = state.packages[state.packages.length - 1];
+  const ai = !!cfg.aiEnabled;
   view.innerHTML = `
   <main class="landing" id="landing">
     <div class="wrap hero">
@@ -36,14 +38,15 @@ export function renderLanding(view) {
 
     <section class="section alt" id="fitur">
       <div class="wrap">
-        <h2>${L('Lima alat, satu alur kerja', 'Five tools, one workflow')}</h2>
+        <h2>${ai ? L('Enam alat, satu alur kerja', 'Six tools, one workflow') : L('Lima alat, satu alur kerja', 'Five tools, one workflow')}</h2>
         <p class="sub">${L('Semua yang dibutuhkan untuk menyiapkan file sebelum masuk RIP.', 'Everything you need to prepare a file before it goes to the RIP.')}</p>
-        <div class="cards c5">
+        <div class="cards${ai ? '' : ' c5'}">
           <article class="card feat"><div class="ic">${icon('check')}</div><h3>${L('Cek Gambar', 'Image Checker')}</h3><p>${L('Periksa resolusi, latar, tepi berbayang, dan bintik sebelum cetak, lalu perbaiki otomatis atau dengan pipet.', 'Check resolution, background, haloed edges and specks before printing, then fix them automatically or with the eyedropper.')}</p><div class="meta">${L('Cek gratis · 1 kredit per unduhan', 'Free check · 1 credit per download')}</div></article>
           <article class="card feat"><div class="ic">${icon('halftone')}</div><h3>Halftone</h3><p>${L('Raster bulat atau garis 30–60 LPI dan knockout hitam, putih, atau warna pilihan, supaya gradasi tercetak halus di kain.', 'Round or line rasters at 30–60 LPI plus black, white or custom-colour knockout, so gradients print smoothly on fabric.')}</p><div class="meta">${L('Di browser · 2 kredit per unduhan', 'In your browser · 2 credits per download')}</div></article>
           <article class="card feat"><div class="ic">${icon('pen')}</div><h3>${L('Vektor', 'Vector')}</h3><p>${L('Ubah logo dan desain warna rata jadi SVG berkurva yang tetap tajam di ukuran berapa pun.', 'Turn logos and flat-colour designs into a curve-based SVG that stays sharp at any size.')}</p><div class="meta">${L('Di browser · 1 kredit per unduhan', 'In your browser · 1 credit per download')}</div></article>
           <article class="card feat"><div class="ic">${icon('sheet')}</div><h3>Gangsheet</h3><p>${L('Susun banyak desain di satu roll film otomatis, termasuk mengikuti bentuk logo supaya film lebih hemat, lalu ekspor PNG/PDF ukuran asli.', 'Arrange many designs on one roll of film automatically, even following logo shapes to save film, then export PNG/PDF at real size.')}</p><div class="meta">${L('Di browser · 1 kredit per meter film', 'In your browser · 1 credit per metre of film')}</div></article>
           <article class="card feat"><div class="ic">${icon('expand')}</div><h3>Upscale</h3><p>${L('Perbesar gambar kecil 2×, 4×, 8×, atau 16× dengan AI, lengkap dengan progres dan riwayat.', 'Enlarge small images 2×, 4×, 8× or 16× with AI, with live progress and history.')}</p><div class="meta">${L('Diproses di server · 1 kredit per gambar', 'Processed on our server · 1 credit per image')}</div></article>
+          ${ai ? `<article class="card feat"><div class="ic">${icon('spark')}</div><h3>${L('Gambar ulang AI', 'AI redraw')}</h3><p>${L('Desain pecah, buram, atau hasil foto digambar ulang AI jadi bersih dan tajam, latar langsung dibuang. Kredit kembali kalau AI gagal.', 'Broken, blurry or photographed designs redrawn by AI as clean, sharp art, with the background removed. Credits come back if the AI fails.')}</p><div class="meta">${L('20 kredit (2K) · 30 kredit (4K)', '20 credits (2K) · 30 credits (4K)')}</div></article>` : ''}
         </div>
       </div>
     </section>
@@ -63,8 +66,8 @@ export function renderLanding(view) {
     <section class="section alt" id="harga">
       <div class="wrap">
         <h2>${L(`Desain siap cetak mulai ${fromPrice}`, `Print-ready designs from ${fromPrice}`)}</h2>
-        <p class="sub">${L(`Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: file siap cetak dari Cek Gambar 1 kredit, Raster/Knockout 2 kredit, SVG dari Vektor 1 kredit, Gangsheet 1 kredit per meter film, Upscale 1 kredit. Kredit tidak pernah hangus${bestSave ? `, dan paket ${esc(pkgName(studio))} hemat sampai ${bestSave}% per kredit` : ''}.`,
-          `Adjust and preview as much as you like, for free. Credits are only used when you download: a print-ready file from the Image Checker 1 credit, Raster/Knockout 2 credits, an SVG from Vector 1 credit, Gangsheet 1 credit per metre of film, Upscale 1 credit. Credits never expire${bestSave ? `, and the ${esc(pkgName(studio))} pack saves up to ${bestSave}% per credit` : ''}.`)}</p>
+        <p class="sub">${L(`Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: file siap cetak dari Cek Gambar 1 kredit, Raster/Knockout 2 kredit, SVG dari Vektor 1 kredit, Gangsheet 1 kredit per meter film, Upscale 1 kredit${ai ? ', Gambar ulang AI 20 kredit (2K) atau 30 kredit (4K), dipotong saat AI bekerja dan kembali kalau gagal' : ''}. Kredit tidak pernah hangus${bestSave ? `, dan paket ${esc(pkgName(studio))} hemat sampai ${bestSave}% per kredit` : ''}.`,
+          `Adjust and preview as much as you like, for free. Credits are only used when you download: a print-ready file from the Image Checker 1 credit, Raster/Knockout 2 credits, an SVG from Vector 1 credit, Gangsheet 1 credit per metre of film, Upscale 1 credit${ai ? ', AI redraw 20 credits (2K) or 30 credits (4K), charged when the AI runs and refunded if it fails' : ''}. Credits never expire${bestSave ? `, and the ${esc(pkgName(studio))} pack saves up to ${bestSave}% per credit` : ''}.`)}</p>
         <div class="prices" id="prices">${pricing()}</div>
       </div>
     </section>

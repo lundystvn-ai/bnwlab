@@ -4,6 +4,7 @@ import { db } from './supa.js';
 import { $, esc, icon, notice, num, toast, uuid, previewMark } from './util.js';
 import { L, tr } from './i18n.js';
 import { state, authDialog, topupDialog, setCredits, regionId, clearSession } from './session.js';
+import { takeHandoff } from './handoff.js';
 
 const DEFAULTS = { colors: 6, smooth: 60, corners: 60, noise: 2, omitWhite: false };
 const ZOOMS = [1, 1.5, 2, 3, 4, 6];
@@ -341,5 +342,6 @@ export function mount(host) {
   syncSettings();
   render();
   if (V.img) { if (V.svgImg) { showInks(); $('vecDl').disabled = !V.result?.svg; } else schedule(10); }
+  const handed = takeHandoff(); if (handed) load(handed);
   return () => { alive = false; stop(); clearTimeout(renderTimer); ro.disconnect(); document.removeEventListener('paste', onPaste); };
 }

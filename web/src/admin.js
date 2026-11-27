@@ -23,6 +23,7 @@ export function mount(host) {
       <button role="tab" data-tab="support">Support <span class="count" id="tabSupport" hidden></span></button>
       <button role="tab" data-tab="unduhan">Riwayat unduhan</button>
       <button role="tab" data-tab="qris">QRIS &amp; notifikasi</button>
+      <button role="tab" data-tab="ai">Gambar AI</button>
       <button role="tab" data-tab="koneksi">Akun BigJPG</button>
     </nav>
     <div id="admBody"></div>
@@ -38,6 +39,7 @@ export function mount(host) {
     if (tab === 'pengguna') return users();
     if (tab === 'qris') return qris();
     if (tab === 'support') return support();
+    if (tab === 'ai') return aiTab();
     if (tab === 'unduhan') { const m = await import('./history.js'); const box = document.createElement('div'); body().replaceChildren(box); settingsUnmount = m.mount(box, { embedded: true }) || null; return; }
     if (tab === 'koneksi') { const m = await import('./settings.js'); const box = document.createElement('div'); body().replaceChildren(box); settingsUnmount = m.mount(box, { embedded: true }) || null; }
   }
@@ -354,6 +356,84 @@ export function mount(host) {
     };
   }
 
+  // ---------- Gambar ulang AI: API key, provider, on/off ----------
+  async function aiTab() {
+    const { invoke } = await import('./supa.js');
+    body().innerHTML = '<div class="empty">Memuat…</div>';
+    let st;
+    try { st = await invoke('ai-redraw', { action: 'config_status' }); }
+    catch (e) { body().innerHTML = notice(esc(e.message), 'error'); return; }
+    if (!alive) return;
+    const g = st.provider === 'google';
+    const lastErr = st.last_error ? notice(`<b>Error AI terakhir:</b> <span class="xs mono" style="word-break:break-word">${esc(st.last_error)}</span><br><span class="xs">Kalau isinya soal saldo, billing, credits, atau quota: isi ulang saldo di Google AI Studio (Billing) atau OpenRouter (Credits). Kredit pelanggan sudah dikembalikan otomatis.</span>`, 'warn') : '';
+    body().innerHTML = `
+      <div class="two">
+        <section class="card stack">
+          <div class="toolbar" style="margin:0"><div><h2 style="margin:0;font-size:var(--text-lg)">Gambar ulang AI</h2>
+            <p class="small muted" style="margin:2px 0 0">Pelanggan unggah desain pecah/buram, AI menggambar ulang. ${st.cost['2K']} kredit (2K) / ${st.cost['4K']} kredit (4K), revisi ${st.revise['2K']}/${st.revise['4K']} kredit. Kredit kembali otomatis kalau AI gagal.</p></div>
+            <span class="grow"></span>${st.enabled ? '<span class="badge b-success">Terbuka untuk pelanggan</span>' : '<span class="badge">Hanya admin</span>'}</div>
+          ${lastErr}
+          <form class="stack" id="aiForm">
+            <div class="field"><label>Penyedia</label>
+              <div class="seg" role="radiogroup" id="aiProv"><button type="button" role="radio" data-p="google" aria-checked="${g}">Google Gemini (langsung)</button><button type="button" role="radio" data-p="openrouter" aria-checked="${!g}">OpenRouter</button></div></div>
+            <div class="stack" id="aiG"${g ? '' : ' hidden'}>
+              <div class="row"><span class="lbl" style="width:110px">Status</span>${st.google.set ? `<span class="badge b-success">API key tersimpan</span> <span class="xs mono muted">${esc(st.google.masked)}</span>` : '<span class="badge b-danger">Belum diisi</span>'}</div>
+              <div class="field"><label for="aiGKey">API key Google AI Studio ${st.google.set ? '<span class="muted">(kosongkan kalau tidak diganti)</span>' : ''}</label><input id="aiGKey" type="password" autocomplete="off" spellcheck="false" placeholder="AIza…"></div>
+              <div class="field"><label for="aiGModel">Model</label><input id="aiGModel" class="mono" spellcheck="false" value="${esc(st.google.model)}"><span class="xs muted">Default gemini-3.1-flash-image (Nano Banana 2). Ganti hanya kalau Google mengganti nama model.</span></div>
+            </div>
+            <div class="stack" id="aiO"${g ? ' hidden' : ''}>
+              <div class="row"><span class="lbl" style="width:110px">Status</span>${st.openrouter.set ? `<span class="badge b-success">API key tersimpan</span> <span class="xs mono muted">${esc(st.openrouter.masked)}</span>` : '<span class="badge b-danger">Belum diisi</span>'}</div>
+              <div class="field"><label for="aiOKey">API key OpenRouter ${st.openrouter.set ? '<span class="muted">(kosongkan kalau tidak diganti)</span>' : ''}</label><input id="aiOKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-…"></div>
+              <div class="field"><label for="aiOModel">Model</label><input id="aiOModel" class="mono" spellcheck="false" value="${esc(st.openrouter.model)}"><span class="xs muted">Nama model gambar Gemini di OpenRouter, misalnya google/gemini-3.1-flash-image-preview.</span></div>
+            </div>
+            <div class="field"><label for="aiCap">Batas gambar per hari (seluruh situs)</label><input id="aiCap" type="number" min="0" max="100000" step="1" value="${esc(st.daily_cap)}"><span class="xs muted">Melindungi saldo AI dari pemakaian tak terduga. 0 = tanpa batas.</span></div>
+            <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" type="submit">Simpan</button><button class="btn btn-secondary" type="button" id="aiTest">Tes koneksi</button><a class="btn btn-secondary" href="#ai" data-route="ai">Buka halaman AI</a></div>
+          </form>
+          <div id="aiMsgA"></div>
+          <div class="row" style="flex-wrap:wrap;border-top:1px solid var(--color-border);padding-top:12px">
+            <span class="small">Untuk pelanggan:</span>
+            <div class="seg" role="radiogroup" id="aiOn" style="min-width:260px"><button role="radio" data-on="0" aria-checked="${!st.enabled}">Sembunyikan</button><button role="radio" data-on="1" aria-checked="${st.enabled}">Buka</button></div>
+          </div>
+        </section>
+        <section class="card stack">
+          <h2 style="margin:0;font-size:var(--text-lg)">Pemakaian 30 hari</h2>
+          <div class="metrics"><div class="metric"><div class="label">Hari ini</div><div class="value">${num(st.stat.today)}</div></div><div class="metric"><div class="label">30 hari</div><div class="value">${num(st.stat.month)}</div></div><div class="metric"><div class="label">Dikembalikan</div><div class="value">${num(st.stat.refunds)}</div></div><div class="metric success"><div class="label">Kredit terpakai</div><div class="value">${num(st.stat.credits)}</div></div></div>
+          <p class="xs muted" style="margin:0">Termasuk uji coba admin. Modal ke Google kira-kira $0,10 per gambar 2K dan $0,15 per gambar 4K (+PPN). Cek pemakaian sebenarnya di AI Studio → Usage / Spend.</p>
+          <h3 style="margin:8px 0 0;font-size:var(--text-base)">Cara menyiapkan (Google)</h3>
+          <ol class="qris-steps small" style="margin:0">
+            <li>Login <b>aistudio.google.com</b> dengan akun BNW Lab → <b>Get API key</b>.</li>
+            <li>Di baris project, klik <b>Set up billing</b>, pilih Prepay, isi saldo. Matikan auto reload kalau ingin pengeluaran tetap.</li>
+            <li>Salin API key (ikon salin), tempel di kolom kiri, <b>Simpan</b>, lalu <b>Tes koneksi</b>.</li>
+            <li>Buka halaman AI, coba 1–2 desain dengan akun admin. Kalau hasilnya oke, pilih <b>Buka</b> untuk pelanggan.</li>
+          </ol>
+          <p class="xs muted" style="margin:0">API key hanya disimpan di server dan tidak pernah dikirim ke browser pelanggan. Jangan kirim key lewat chat atau WhatsApp.</p>
+        </section>
+      </div>`;
+    let prov = st.provider;
+    $('aiProv').onclick = (e) => { const b = e.target.closest('[data-p]'); if (!b) return; prov = b.dataset.p; $('aiProv').querySelectorAll('[data-p]').forEach((x) => x.setAttribute('aria-checked', String(x === b))); $('aiG').hidden = prov !== 'google'; $('aiO').hidden = prov !== 'openrouter'; };
+    $('aiForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = e.submitter; if (btn) btn.disabled = true;
+      try {
+        const r = await invoke('ai-redraw', { action: 'save_config', provider: prov, google_key: $('aiGKey').value.trim(), google_model: $('aiGModel').value.trim(), openrouter_key: $('aiOKey').value.trim(), openrouter_model: $('aiOModel').value.trim(), daily_cap: $('aiCap').value.trim() });
+        toast(r.message); await aiTab();
+      } catch (err) { $('aiMsgA').innerHTML = notice(esc(err.message), 'error'); if (btn) btn.disabled = false; }
+    };
+    $('aiTest').onclick = async () => {
+      const b = $('aiTest'); b.disabled = true;
+      try { const r = await invoke('ai-redraw', { action: 'test' }); $('aiMsgA').innerHTML = notice(esc(r.message), 'ok'); }
+      catch (err) { $('aiMsgA').innerHTML = notice(esc(err.message), 'error'); }
+      finally { b.disabled = false; }
+    };
+    $('aiOn').onclick = async (e) => {
+      const b = e.target.closest('[data-on]'); if (!b || b.getAttribute('aria-checked') === 'true') return;
+      const on = b.dataset.on === '1';
+      if (on && !(await confirmBox({ title: 'Buka Gambar ulang AI untuk pelanggan?', body: 'Menu "Gambar AI" akan muncul untuk semua pengunjung. Pastikan saldo AI sudah terisi dan hasil uji coba sudah oke.', okLabel: 'Buka' }))) return;
+      try { const r = await invoke('ai-redraw', { action: 'set_enabled', enabled: on }); cfg.aiEnabled = on; toast(r.message); aiTab(); }
+      catch (err) { $('aiMsgA').innerHTML = notice(esc(err.message), 'error'); }
+    };
+  }
+
   // ---------- QRIS + contact ----------
   async function qris() {
     await loadSettings().catch(() => {});
@@ -409,7 +489,7 @@ export function mount(host) {
     };
   }
 
-  const first = ['ringkasan', 'pengunjung', 'pembayaran', 'pengguna', 'support', 'unduhan', 'qris', 'koneksi'].includes(tabFromHash()) ? tabFromHash() : 'ringkasan';
+  const first = ['ringkasan', 'pengunjung', 'pembayaran', 'pengguna', 'support', 'unduhan', 'qris', 'ai', 'koneksi'].includes(tabFromHash()) ? tabFromHash() : 'ringkasan';
   show(first);
   badge();
   return () => { alive = false; settingsUnmount?.(); };

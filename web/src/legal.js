@@ -41,10 +41,12 @@ function privacy() {
         <ul>
           <li><b>Knockout dan Raster</b> diproses sepenuhnya di browser Anda. Gambar tidak pernah diunggah ke server kami.</li>
           <li><b>Upscale</b> mengunggah gambar ke penyimpanan kami, lalu mengirimkannya ke penyedia layanan upscale pihak ketiga untuk diproses. Gambar asli dihapus dari penyimpanan kami setelah proses selesai atau gagal. Hasil upscale disimpan oleh penyedia tersebut dan bisa diunduh lewat link yang berlaku terbatas.</li>
+          <li><b>Gambar ulang AI</b> mengirim gambar (diperkecil ke maks. 2048 px) lewat server kami ke penyedia AI pihak ketiga (Google Gemini, atau OpenRouter sebagai perantara) untuk digambar ulang. Kami tidak menyimpan gambar maupun hasilnya; hasil langsung dikirim ke browser Anda. Penyedia AI memprosesnya sesuai ketentuan layanan berbayar mereka. Hasil AI diberi tanda air digital tak terlihat (SynthID) oleh Google.</li>
         </ul>`, `
         <ul>
           <li><b>Knockout and Raster</b> run entirely in your browser. Your images are never uploaded to our servers.</li>
           <li><b>Upscale</b> uploads the image to our storage and sends it to a third-party upscaling provider for processing. The original is deleted from our storage once processing finishes or fails. The upscaled result is held by that provider and can be downloaded from a link that expires.</li>
+          <li><b>AI redraw</b> sends the image (scaled down to at most 2048 px) through our server to a third-party AI provider (Google Gemini, or OpenRouter as an intermediary) to be redrawn. We do not store the image or the result; the result goes straight to your browser. The AI provider processes it under its paid-service terms. Google adds an invisible digital watermark (SynthID) to AI results.</li>
         </ul>`)],
       [L('3. Untuk apa data dipakai', '3. How we use data'), L(`
         <ul>
@@ -136,11 +138,13 @@ function terms() {
           <li>Gambar yang Anda proses tetap milik Anda. Kami tidak mengklaim hak atas gambar atau hasilnya.</li>
           <li>Anda bertanggung jawab memastikan Anda berhak memakai dan mencetak gambar yang Anda proses, termasuk logo, karakter, dan merek milik pihak lain.</li>
           <li>Jangan memakai layanan untuk konten yang melanggar hukum atau hak orang lain. Kami dapat menangguhkan akun yang melanggar.</li>
+          <li><b>Gambar ulang AI</b> membuat gambar baru berdasarkan desain Anda. Hasilnya bisa berbeda dari aslinya (bentuk, teks, warna), jadi periksa sebelum dicetak. Kredit dipotong saat AI bekerja dan dikembalikan otomatis kalau AI gagal atau menolak gambar; kredit tidak dikembalikan karena hasil kurang sesuai selera, tetapi Anda bisa memakai revisi dengan harga lebih murah.</li>
         </ul>`, `
         <ul>
           <li>Images you process remain yours. We claim no rights over them or the results.</li>
           <li>You are responsible for having the right to use and print the images you process, including other parties' logos, characters and brands.</li>
           <li>Do not use the service for content that breaks the law or infringes others' rights. We may suspend accounts that do.</li>
+          <li><b>AI redraw</b> creates a new image based on your design. It can differ from the original (shapes, text, colours), so check it before printing. Credits are charged when the AI runs and refunded automatically if the AI fails or refuses the image; they are not refunded because a result is not to your taste, but you can use cheaper revisions.</li>
         </ul>`)],
       [L('5. Hasil cetak', '5. Print results'), L(`
         <p>Pratinjau di layar adalah perkiraan. Warna dan hasil akhir bergantung pada printer, tinta, film, bubuk, kain, dan pengaturan RIP Anda. Periksa file dan lakukan tes cetak sebelum produksi. Kami tidak bertanggung jawab atas kerugian bahan atau produksi akibat hasil cetak.</p>`, `

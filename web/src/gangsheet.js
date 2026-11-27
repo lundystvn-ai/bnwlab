@@ -5,6 +5,7 @@ import { db } from './supa.js';
 import { $, esc, icon, notice, num, toast, uuid, openModal, closeModal } from './util.js';
 import { L, tr, locale } from './i18n.js';
 import { state, authDialog, topupDialog, setCredits, regionId, clearSession } from './session.js';
+import { takeHandoff } from './handoff.js';
 import {
   DEFAULTS, MAX_COPIES, newJob, uid, box, cropOf, normalAngle, effectiveDpi, mmToPx, pack, fillPage, pagesOf, inspect, validateJob, validateSettings, exportCost,
 } from './gangsheet/engine.js';
@@ -885,13 +886,14 @@ export function mount(host) {
 
   pageApi = { render };
   render();
+  const handed = takeHandoff();   // a design passed on from another tool (e.g. Gambar ulang AI)
   if (!G.restored) {
     G.restored = true; busy = true;
     restoreDraft().then((entry) => {
       if (entry && !G.job.items.length && !G.past.length) { G.rev = entry.revision || 0; G.job = validateJob(entry.job); refreshSelected(G.job.items[0]?.id); }
       else if (entry) G.rev = entry.revision || 0;
-    }).catch(() => {}).finally(() => { busy = false; if (alive) render(); });
-  }
+    }).catch(() => {}).finally(() => { busy = false; if (alive) { render(); if (handed) upload([handed]); } });
+  } else if (handed) upload([handed]);
 
   return () => {
     alive = false; pageApi = null; ro.disconnect();

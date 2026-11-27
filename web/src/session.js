@@ -179,6 +179,7 @@ export async function loadSettings() {
     if (r.key === 'qris_static' && r.value) cfg.qrisStatic = r.value;
     if (r.key === 'kontak_whatsapp') cfg.kontakWhatsApp = r.value;
     if (r.key === 'pay_mode') cfg.payMode = r.value;
+    if (r.key === 'ai_enabled') cfg.aiEnabled = r.value === '1';
   }
 }
 
