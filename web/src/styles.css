@@ -580,3 +580,11 @@ canvas{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .p-use{margin-bottom:6px}
 .price-foot{text-align:center;margin-top:16px}
 @media (prefers-reduced-motion:no-preference){.pt-num{animation:ptpulse 2.4s ease-in-out infinite}@keyframes ptpulse{50%{transform:scale(1.05)}}}
+
+/* ---- hero pills row + free-credit pill ---- */
+.hero-pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.hero-pills .hero-promo{margin-bottom:0}
+.hero-free{display:inline-flex;align-items:center;gap:10px;padding:5px 14px 5px 6px;border-radius:999px;border:1px solid var(--color-accent);background:var(--color-accent-soft);color:inherit;font:inherit;font-size:var(--text-sm);cursor:pointer}
+.hero-free b{background:var(--color-accent);color:#fff;border-radius:999px;padding:2px 10px;font-weight:800;font-size:12px;letter-spacing:.04em}
+.hero-free u{text-decoration:none;font-weight:700}
+.hero-free:hover{filter:brightness(1.12)}
