@@ -520,3 +520,11 @@ canvas{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .gs-pick.picking canvas{cursor:crosshair}
 .gs-swatch{width:22px;height:22px;border-radius:var(--radius-xs);border:1px solid var(--color-border-input);flex:none}
 .modal-box .btn-sm{height:26px;padding:0 9px;font-size:var(--text-xs)}
+
+.welcome-banner{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;margin-bottom:6px;border:1px solid var(--color-success);background:var(--color-success-soft);border-radius:var(--radius-md,10px);font-size:var(--text-sm)}
+.welcome-banner .wb-ic{font-family:var(--font-mono);font-weight:700;color:var(--color-success);font-size:var(--text-lg)}
+.welcome-banner .wb-tx{flex:1 1 220px}
+.welcome-banner .wb-time{white-space:nowrap}
+.welcome-banner .wb-time .mono{font-size:var(--text-md);color:var(--color-success)}
+.pack-bonus{font-size:var(--text-sm);color:var(--color-success)}
+.modal-box .welcome-banner{margin:10px 0 12px}

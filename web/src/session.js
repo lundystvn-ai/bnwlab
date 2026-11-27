@@ -12,6 +12,7 @@ export const state = {
   region: { id: 'web', nama: 'Web', timezone: 'Asia/Jakarta' },
   regions: [{ id: 'web', nama: 'Web' }],
   packages: cfg.packages,
+  welcome: null,   // { pct, endsAt } while the signed-in user may still claim the welcome bonus
 };
 
 const listeners = new Set();
@@ -29,8 +30,39 @@ export async function refreshCredits() {
   if (!state.user) return emit();
   const { data, error } = await db.rpc('my_credits');
   if (!error && typeof data === 'number') setCredits(data);
+  if (state.welcome) await loadWelcome();
 }
 onAfterInvoke(refreshCredits);
+
+// ---------- welcome bonus: +P% credits on the first paid top-up within N hours of signing up ----------
+export async function loadWelcome() {
+  if (!state.user) { state.welcome = null; return; }
+  const { data, error } = await db.rpc('welcome_offer');
+  const ends = data?.ends_at ? new Date(data.ends_at) : null;
+  state.welcome = !error && data?.active && ends && ends > new Date() ? { pct: Number(data.pct) || 0, endsAt: ends } : null;
+  emit();
+}
+export const welcomePct = () => state.welcome?.pct || 0;
+export const bonusFor = (kredit) => (state.welcome ? Math.round((kredit * state.welcome.pct) / 100) : 0);
+const pad2 = (n) => String(n).padStart(2, '0');
+const fmtLeft = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return `${pad2(Math.floor(t / 3600))}:${pad2(Math.floor((t % 3600) / 60))}:${pad2(t % 60)}`; };
+export function welcomeBanner() {
+  if (state.welcome) {
+    return `<div class="welcome-banner" role="status"><span class="wb-ic" aria-hidden="true">+${state.welcome.pct}%</span><span class="wb-tx"><b>${L(`Bonus akun baru: +${state.welcome.pct}% kredit`, `New-account bonus: +${state.welcome.pct}% credits`)}</b> ${L('untuk top-up pertama Anda. Satu kali saja.', 'on your first top-up. One time only.')}</span><span class="wb-time">${L('Berakhir dalam', 'Ends in')} <b class="mono" data-wtimer>${fmtLeft(state.welcome.endsAt - Date.now())}</b></span></div>`;
+  }
+  const pct = Number(cfg.promoPct) || 0;
+  if (!state.user && pct > 0) {
+    const h = Number(cfg.promoHours) || 24;
+    return `<div class="welcome-banner" role="status"><span class="wb-ic" aria-hidden="true">+${pct}%</span><span class="wb-tx"><b>${L(`Bonus akun baru: +${pct}% kredit`, `New-account bonus: +${pct}% credits`)}</b> ${L(`untuk top-up pertama dalam ${h} jam setelah daftar (email terverifikasi). Satu kali saja.`, `on your first top-up within ${h} hours of signing up (verified email). One time only.`)}</span></div>`;
+  }
+  return '';
+}
+setInterval(() => {
+  const w = state.welcome; if (!w) return;
+  const left = w.endsAt - Date.now();
+  if (left <= 0) { state.welcome = null; document.querySelectorAll('.welcome-banner').forEach((n) => n.remove()); emit(); return; }
+  document.querySelectorAll('[data-wtimer]').forEach((n) => (n.textContent = fmtLeft(left)));
+}, 1000);
 
 export async function loadPackages() {
   const { data } = await db.from('credit_packages').select('id,nama,kredit,harga,catatan,populer').eq('aktif', true).order('urutan');
@@ -51,6 +83,7 @@ async function loadProfile(session) {
     state.region = w.data.find((r) => r.id === state.profile.wilayah_id) || w.data[0];
   }
   await refreshCredits();
+  await loadWelcome().catch(() => {});
   emit();
 }
 
@@ -59,7 +92,7 @@ export async function applySession(session) {
   if (state.user?.id !== session.user.id) await loadProfile(session);
 }
 export function clearSession() {
-  state.user = null; state.profile = null; state.credits = 0; emit();
+  state.user = null; state.profile = null; state.credits = 0; state.welcome = null; emit();
 }
 export async function signOut() { await db.auth.signOut(); clearSession(); }
 
@@ -179,6 +212,8 @@ export async function loadSettings() {
     if (r.key === 'qris_static' && r.value) cfg.qrisStatic = r.value;
     if (r.key === 'kontak_whatsapp') cfg.kontakWhatsApp = r.value;
     if (r.key === 'pay_mode') cfg.payMode = r.value;
+    if (r.key === 'promo_welcome_pct') cfg.promoPct = Number(r.value) || 0;
+    if (r.key === 'promo_welcome_hours') cfg.promoHours = Number(r.value) || 24;
   }
 }
 
@@ -194,10 +229,11 @@ export async function topupDialog(reason = '', opts = {}) {
     <div class="wallet-now">${L(`Saldo sekarang <b class="mono">${state.credits}</b> kredit`, `Current balance <b class="mono">${state.credits}</b> credits`)}</div>
     ${waiting.length ? notice(L(`${waiting.length} pembayaran menunggu konfirmasi admin (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Kredit masuk otomatis setelah dicek.`, `${waiting.length} payment(s) waiting for admin confirmation (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Credits are added once checked.`), 'warn') : ''}
     ${openVa.map((p) => `<div class="va-open"><span class="small">${L(`Transfer belum selesai: <b>${rupiah(p.jumlah + (p.biaya || 0))}</b> ke ${esc(bankName(p.va_bank))} VA`, `Unfinished transfer: <b>${rupiah(p.jumlah + (p.biaya || 0))}</b> to ${esc(bankName(p.va_bank))} VA`)}</span><button class="btn btn-secondary btn-sm" data-va="${esc(p.id)}">${L('Lihat nomor', 'Show number')}</button></div>`).join('')}
+    ${welcomeBanner()}
     <div class="pack-list" role="list">${state.packages.map((p) => `
       <button class="pack pack-btn${p.populer ? ' pop' : ''}" data-pack="${esc(p.id)}" role="listitem">
         <span><span class="pack-name">${esc(pkgName(p))}${p.populer ? ` <span class="badge b-accent">${L('Terlaris', 'Most popular')}</span>` : ''}</span>
-        <span class="muted small">${L(`${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit`, `${p.kredit} credits · ${rupiah(Math.round(p.harga / p.kredit))}/credit`)} · ${esc(pkgNote(p))}</span></span>
+        <span class="muted small">${L(`${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit`, `${p.kredit} credits · ${rupiah(Math.round(p.harga / p.kredit))}/credit`)} · ${esc(pkgNote(p))}</span>${bonusFor(p.kredit) ? `<span class="pack-bonus">+${bonusFor(p.kredit)} ${L('kredit bonus', 'bonus credits')} = <b>${p.kredit + bonusFor(p.kredit)}</b> ${L('kredit', 'credits')}</span>` : ''}</span>
         <b class="pack-price">${rupiah(p.harga)}</b>
       </button>`).join('')}</div>
     <p class="muted small">${L('Bayar dengan QRIS dari e-wallet atau m-banking apa pun. Kredit tidak hangus.', 'Pay with QRIS from any Indonesian e-wallet or mobile banking app. Credits never expire.')}</p>

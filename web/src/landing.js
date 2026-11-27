@@ -1,5 +1,5 @@
 import { esc, rupiah, icon } from './util.js';
-import { state } from './session.js';
+import { state, welcomeBanner, bonusFor } from './session.js';
 import { L, pkgName, pkgNote } from './i18n.js';
 import { footer } from './legal.js';
 
@@ -96,11 +96,12 @@ const save = (p) => {
 };
 
 export function pricing() {
-  return state.packages.map((p) => `
+  return welcomeBanner() + state.packages.map((p) => `
     <div class="card price${p.populer ? ' pop' : ''}">
       <div class="row"><b>${esc(pkgName(p))}</b>${p.populer ? `<span class="badge b-accent" style="margin-left:auto">${L('Terlaris', 'Most popular')}</span>` : ''}</div>
       <div class="amt">${rupiah(p.harga)}</div>
       <div class="muted small">${L(`${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit`, `${p.kredit} credits · ${rupiah(Math.round(p.harga / p.kredit))}/credit`)}${save(p) ? ` · <b class="save">${L('hemat', 'save')} ${save(p)}%</b>` : ''}</div>
+      ${bonusFor(p.kredit) ? `<div class="pack-bonus">+${bonusFor(p.kredit)} ${L('kredit bonus', 'bonus credits')} = <b>${p.kredit + bonusFor(p.kredit)}</b> ${L('kredit', 'credits')}</div>` : ''}
       <ul><li>${icon('check')}<span>${L(`<b>± ${Math.floor(p.kredit / 2)} desain</b> Raster/Knockout <span class="muted">atau ${p.kredit} upscale</span>`, `<b>± ${Math.floor(p.kredit / 2)} designs</b> Raster/Knockout <span class="muted">or ${p.kredit} upscales</span>`)}</span></li><li>${icon('check')}${esc(pkgNote(p) || L('Untuk semua alat', 'For every tool'))}</li><li>${icon('check')}${L('Kredit tidak hangus', 'Credits never expire')}</li></ul>
       <button class="btn ${p.populer ? 'btn-primary' : 'btn-secondary'} btn-lg" data-topup>${L('Pilih', 'Choose')} ${esc(pkgName(p))}</button>
     </div>`).join('');

@@ -86,6 +86,7 @@ function syncHeader() {
   $('userName').textContent = state.profile?.username || '';
 }
 onSession(syncHeader);
+onSession(() => { const p = $('prices'); if (p) p.innerHTML = pricing(); });
 // Re-draw the app (and its admin menu) whenever the signed-in account or its role changes,
 // so the Admin menu never lingers for a non-admin account.
 // A guest who signs in on Halftone or Upscale keeps the work on screen: those pages refresh their
