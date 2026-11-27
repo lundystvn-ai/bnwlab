@@ -86,11 +86,11 @@ export function promoTicket() {
 // Small pill in the hero.
 export function heroPromo() {
   const pct = promoPct();
-  const free = !state.user ? `<button type="button" class="hero-free" data-signup><b>${L('GRATIS', 'FREE')}</b><span>${L('Daftar akun baru, dapat <u>5 kredit</u> untuk dicoba', 'Create an account and get <u>5 free credits</u> to try')}</span></button>` : '';
+  const free = !state.user ? `<button type="button" class="ho-cell ho-free" data-signup><b class="ho-big">5</b><span class="ho-tx"><b>${L('kredit gratis', 'free credits')}</b><small>${L('untuk akun baru, daftar sekarang', 'for new accounts, sign up now')}</small></span></button>` : '';
   let promo = '';
-  if (pct && state.welcome) promo = `<a class="hero-promo" href="#harga" data-route="harga"><b>+${pct}%</b><span>${L('kredit untuk akun baru', 'credits for new accounts')}</span><span class="hp-time mono" data-wtimer>${fmtLeft(state.welcome.endsAt - Date.now())}</span></a>`;
-  else if (pct) promo = `<a class="hero-promo" href="#harga" data-route="harga"><b>+${pct}%</b><span>${L('kredit di top-up pertama akun baru', 'credits on a new account\'s first top-up')}</span></a>`;
-  return (free || promo) ? `<div class="hero-pills">${free}${promo}</div>` : '';
+  if (pct && state.welcome) promo = `<a class="ho-cell ho-promo" href="#harga" data-route="harga"><b class="ho-big">+${pct}%</b><span class="ho-tx"><b>${L('bonus kredit', 'bonus credits')}</b><small>${L('top-up pertama, sisa', 'first top-up, ends in')} <span class="mono" data-wtimer>${fmtLeft(state.welcome.endsAt - Date.now())}</span></small></span></a>`;
+  else if (pct) promo = `<a class="ho-cell ho-promo" href="#harga" data-route="harga"><b class="ho-big">+${pct}%</b><span class="ho-tx"><b>${L('bonus kredit', 'bonus credits')}</b><small>${L('di top-up pertama', 'on first top-up')}</small></span></a>`;
+  return (free || promo) ? `<div class="hero-offer">${free}${promo}</div>` : '';
 }
 const setTimers = (left) => {
   const t = fmtLeft(left), [h, m, sec] = t.split(':');

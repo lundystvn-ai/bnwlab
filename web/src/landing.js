@@ -12,7 +12,6 @@ export function renderLanding(view) {
   <main class="landing" id="landing">
     <div class="wrap hero">
       <div>
-        <div id="heroPromo">${heroPromo()}</div>
         <span class="eyebrow">${L('Untuk usaha sablon &amp; percetakan DTF', 'For DTF print shops')}</span>
         <h1>${L('Punya usaha DTF? Wajib cek file dulu sebelum cetak.', 'Run a DTF business? Check every file before you print.')}</h1>
         <p class="lead">${L('File pecah, latar belum bersih, atau tepi berbayang baru ketahuan setelah film tercetak. <b>Cek Gambar</b> memeriksanya dalam hitungan detik, <span class="badge-free">GRATIS</span>', 'Low resolution, a dirty background or haloed edges usually show up only after the film is printed. The <b>Image Checker</b> catches them in seconds, <span class="badge-free">FREE</span>')}</p>
@@ -25,7 +24,8 @@ export function renderLanding(view) {
           <a class="btn btn-primary btn-xl" href="#cek" data-route="cek">${icon('check', 'i i-sm')}${L('Cek file gratis', 'Check a file free')}</a>
           <button class="btn btn-secondary btn-xl" data-cta>${L('Coba buat desain halftone', 'Try a halftone design')}</button>
         </div>
-        <p class="fine small muted">${L('Semua alat bisa dicoba tanpa daftar. Daftar saat mau mengunduh, dan dapat <b>5 kredit gratis</b>.', 'Try every tool without signing up. Sign up when you want to download, and get <b>5 free credits</b>.')}</p>
+        <div id="heroPromo">${heroPromo()}</div>
+        <p class="fine small muted">${L('Semua alat bisa dicoba tanpa daftar. Daftar hanya saat mau mengunduh.', 'Try every tool without signing up. Sign up only when you want to download.')}</p>
       </div>
       <div class="compare" id="heroCompare" aria-label="${L('Contoh sebelum dan sesudah raster', 'Before and after raster example')}">
         <img class="before" src="/sample-before.jpg" alt="" draggable="false">
