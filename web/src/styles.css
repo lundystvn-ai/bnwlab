@@ -258,7 +258,7 @@ td.num,th.num{text-align:right}
 .check-list .notice{margin-bottom:6px}
 
 /* ---------- responsive ---------- */
-@media (max-width:1000px){:root{--header-h:84px}.top{flex-wrap:wrap;align-content:center;row-gap:0;padding-top:4px}.menu{order:10;width:100%;margin:0 0 4px;overflow-x:auto;scrollbar-width:none}.menu::-webkit-scrollbar{display:none}.menu a{white-space:nowrap}.hero{grid-template-columns:1fr;gap:28px;padding-top:36px}.cards,.steps{grid-template-columns:1fr}.prices{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}
+@media (max-width:1000px){:root{--header-h:84px}.top{flex-wrap:wrap;align-content:center;row-gap:0;padding-top:4px}.menu{order:10;width:100%;margin:0 0 4px;overflow-x:auto;scrollbar-width:none}.menu::-webkit-scrollbar{display:none}.menu a{white-space:nowrap}.hero{grid-template-columns:1fr;gap:28px;padding-top:56px}.cards,.steps{grid-template-columns:1fr}.prices{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.two{grid-template-columns:1fr}}
 @media (max-width:760px){
   .hide-sm{display:none!important}
   .user{display:none!important}
@@ -274,7 +274,7 @@ td.num,th.num{text-align:right}
   .float{bottom:8px;max-width:calc(100% - 16px)}
   .float .t{display:none}
   .float button{padding:0 8px}
-  .hero{padding:32px 16px 40px}
+  .hero{padding:56px 16px 40px}
   .page-in{padding:16px}
   .wrap{padding:0 16px}
 }
@@ -601,3 +601,7 @@ canvas{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .ho-tx{display:flex;flex-direction:column;gap:2px;min-width:0}.ho-tx b{font-size:var(--text-base)}.ho-tx small{font-size:var(--text-sm);opacity:.8}
 .ho-cell:hover{filter:brightness(1.12)}
 @media (max-width:520px){.hero-offer{grid-template-columns:1fr}.ho-cell+.ho-cell{border-left:0;border-top:1px solid var(--color-border)}}
+
+/* hero vertical rhythm (beats .wrap padding) */
+.landing .hero.wrap{padding-top:56px;padding-bottom:48px}
+@media (max-width:1000px){.landing .hero.wrap{padding-top:36px;padding-bottom:36px}}
