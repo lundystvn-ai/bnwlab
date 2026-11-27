@@ -7,6 +7,14 @@ import { heroPromo } from './session.js';
 import { lang, L, setLang } from './i18n.js';
 import { track, excludeThisDevice } from './track.js';
 
+
+// After a new deploy, a tab opened earlier still points at renamed chunks. Reload once to pick up the new build.
+const staleChunk = (msg) => /dynamically imported module|Importing a module script failed|error loading dynamically/i.test(String(msg || ''));
+const reloadOnce = () => { try { if (sessionStorage.getItem('bnw-reload')) return false; sessionStorage.setItem('bnw-reload', '1'); } catch {} location.reload(); return true; };
+window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); reloadOnce(); });
+window.addEventListener('unhandledrejection', (e) => { if (staleChunk(e.reason && e.reason.message)) reloadOnce(); });
+window.addEventListener('load', () => setTimeout(() => { try { sessionStorage.removeItem('bnw-reload'); } catch {} }, 5000));
+
 const APP_ROUTES = ['editor', 'vektor', 'gangsheet', 'upscale', 'kredit', 'admin', 'support', 'cek'];
 const OPEN_ROUTES = ['support', 'cek', 'vektor', 'gangsheet', 'editor', 'upscale'];   // app pages that guests may open too
 const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];

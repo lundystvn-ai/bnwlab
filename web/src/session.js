@@ -308,7 +308,13 @@ async function startTopup(packId, btn, opts = {}) {
     const QR = (await import('qrcode')).default;
     payload = dynamicQris(cfg.qrisStatic, data.harga);
     svg = await QR.toString(payload, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#000000', light: '#ffffff' } });
-  } catch (e) { $('tpMsg').innerHTML = notice(L('QRIS tidak dapat dibuat: ', 'Could not create the QRIS code: ') + esc(e.message), 'error'); return; }
+  } catch (e) {
+    if (/dynamically imported module|Importing a module script failed/i.test(String(e.message))) {
+      $('tpMsg').innerHTML = notice(L('Situs baru saja diperbarui. Memuat ulang halaman…', 'The site was just updated. Reloading…'), 'info');
+      setTimeout(() => location.reload(), 900); return;
+    }
+    $('tpMsg').innerHTML = notice(L('QRIS tidak dapat dibuat: ', 'Could not create the QRIS code: ') + esc(e.message), 'error'); return;
+  }
   const { merchantName } = await import('./qris.js');
   const ref = offline ? data.id.slice(-6).toUpperCase() : String(data.id).slice(0, 8).toUpperCase();
   openModal(`
