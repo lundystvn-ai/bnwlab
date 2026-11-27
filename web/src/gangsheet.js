@@ -8,7 +8,7 @@ import { state, authDialog, topupDialog, setCredits, regionId, clearSession } fr
 import {
   DEFAULTS, MAX_COPIES, newJob, uid, box, cropOf, normalAngle, effectiveDpi, mmToPx, pack, fillPage, pagesOf, inspect, validateJob, validateSettings, exportCost,
 } from './gangsheet/engine.js';
-import { readArtwork, makeText, removeEdgeColor, imageFor, releaseUnused } from './gangsheet/media.js';
+import { readArtwork, makeText, removeColor, knockColor, edgeColor, imageFor, releaseUnused } from './gangsheet/media.js';
 
 // ---------- state kept between page visits ----------
 const G = {
@@ -32,7 +32,8 @@ const errorText = (code) => ({
   image: L('Gambar tidak bisa dibuka.', 'The image cannot be opened.'),
   read: L('File tidak bisa dibaca.', 'The file cannot be read.'),
   too_large: L('Hapus latar hanya untuk gambar sampai 36 megapiksel.', 'Background removal supports images up to 36 megapixels.'),
-  no_edge_color: L('Warna itu tidak ditemukan di tepi luar gambar.', 'That colour was not found on the outer edge.'),
+  no_edge_color: L('Warna itu tidak ditemukan di tepi luar gambar. Pilih "Semua bagian warna ini" kalau warnanya ada di dalam desain.', 'That colour was not found on the outer edge. Choose "Every area of this colour" if it is inside the design.'),
+  no_color: L('Warna itu tidak ditemukan di gambar.', 'That colour was not found in the image.'),
   project: L('File proyek tidak dikenali atau rusak.', 'The project file is not recognised or is damaged.'),
   settings: L('Periksa lebar, panjang, margin, dan jarak film.', 'Check the film width, length, margin and gap.'),
   canvas: L('Browser tidak bisa membuat kanvas cetak. Coba DPI lebih kecil atau lembar lebih pendek.', 'The browser could not create a print canvas. Try a lower DPI or a shorter sheet.'),
@@ -279,7 +280,7 @@ export function mount(host) {
     const opaque = new Set(report.warnings.filter((w) => w.type === 'opaque').map((w) => w.artId));
     $('gsArts').innerHTML = G.job.arts.map((a) => `<button class="gs-art${a.id === active?.id ? ' on' : ''}" data-art="${esc(a.id)}">
       <span class="gs-thumb"><img alt="" src="${esc(previewURL(a))}"></span>
-      <span class="gs-names"><b>${esc(a.name)}</b><small>${fmt(a.w / 10)} × ${fmt(a.h / 10)} cm${a.vector ? ' · ' + L('vektor', 'vector') : ' · ' + fmt(Math.floor(effectiveDpi(a)), 0) + ' DPI'}${opaque.has(a.id) ? ' · <span class="gs-warn">' + L('tidak transparan', 'not transparent') + '</span>' : ''}</small></span>
+      <span class="gs-names"><b>${esc(a.name)}</b><small>${fmt(a.w / 10)} × ${fmt(a.h / 10)} cm${a.vector ? ' · ' + L('vektor', 'vector') : ' · ' + fmt(Math.round(effectiveDpi(a)), 0) + ' DPI'}${opaque.has(a.id) ? ' · <span class="gs-warn">' + L('tidak transparan', 'not transparent') + '</span>' : ''}</small></span>
       <span class="gs-copies">×${groups.get(a.id)?.length || 0}</span></button>`).join('');
     for (const r of $('gsArts').children) r.onclick = () => {
       const list = groups.get(r.dataset.art); if (!list?.length) return;
@@ -301,7 +302,7 @@ export function mount(host) {
       ...(i.page < 0 ? [`<option value="-1" selected>${L('Belum ditempatkan', 'Not placed')}</option>`] : []), `<option value="new">${L('Lembar baru', 'New sheet')}</option>`].join('');
     const opaque = report.warnings.some((w) => w.type === 'opaque' && w.artId === a.id);
     el.dataset.art = a.id;
-    el.innerHTML = `<details class="sec" open><summary>${icon('chev', 'i i-sm chev')}${L('Desain terpilih', 'Selected design')}<span class="badge">${a.vector ? L('Vektor', 'Vector') : fmt(Math.floor(effectiveDpi(a)), 0) + ' DPI'}</span></summary>
+    el.innerHTML = `<details class="sec" open><summary>${icon('chev', 'i i-sm chev')}${L('Desain terpilih', 'Selected design')}<span class="badge">${a.vector ? L('Vektor', 'Vector') : fmt(Math.round(effectiveDpi(a)), 0) + ' DPI'}</span></summary>
       <div class="sec-body">
         <p class="gs-name" title="${esc(a.name)}">${esc(a.name)}</p>
         ${a.fileDpi ? `<p class="hint" style="margin:-6px 0 0">${L(`Ukuran awal dari DPI file (${fmt(a.fileDpi, 0)} DPI).`, `Initial size from the file's DPI (${fmt(a.fileDpi, 0)} DPI).`)}</p>` : ''}
@@ -328,7 +329,7 @@ export function mount(host) {
         <label class="gs-check-line"><input type="checkbox" id="gsTrim"${a.trim ? ' checked' : ''}> ${L('Pangkas tepi transparan', 'Trim transparent edges')}</label>
         <div class="grid2">
           ${a.textConfig ? `<button class="btn btn-secondary btn-sm" id="gsEditText">${icon('type', 'i i-sm')}${L('Edit teks', 'Edit text')}</button>` : ''}
-          ${a.vector ? '' : `<button class="btn btn-secondary btn-sm" id="gsRemoveBg">${icon('pipette', 'i i-sm')}${L('Hapus warna latar', 'Remove background')}</button>`}
+          ${a.textConfig ? '' : `<button class="btn btn-secondary btn-sm" id="gsRemoveBg">${icon('pipette', 'i i-sm')}${L('Hapus warna', 'Remove a colour')}</button>`}
         </div>
         <button class="linklike danger" id="gsRemoveAll">${L('Hapus semua salinan desain ini', 'Delete every copy of this design')}</button>
       </div></details>`;
@@ -594,19 +595,72 @@ export function mount(host) {
     };
   }
 
-  function bgDialog(a) {
-    openModal(`<h3>${L('Hapus warna latar', 'Remove background colour')}</h3>
-      <p class="muted">${L(`Piksel berwarna serupa yang tersambung ke tepi luar <b>${esc(a.name)}</b> dibuat transparan. Bagian dalam desain yang tidak tersambung ke tepi tetap aman.`, `Pixels of a similar colour connected to the outer edge of <b>${esc(a.name)}</b> become transparent. Areas inside the design that do not touch the edge stay.`)}</p>
-      <div class="grid2"><div class="field"><label for="gsEdge">${L('Warna latar', 'Background colour')}</label><input type="color" id="gsEdge" value="#ffffff" style="height:36px;padding:2px"></div>
-        <div class="field"><label for="gsTol">${L('Toleransi (%)', 'Tolerance (%)')}</label><input type="number" id="gsTol" min="0" max="100" step="1" value="8"></div></div>
-      <div class="modal-actions"><button class="btn btn-quiet" data-close>${L('Batal', 'Cancel')}</button><button class="btn btn-primary" id="gsBgGo">${L('Hapus latar', 'Remove background')}</button></div>`);
+  // Remove a colour with an eyedropper: click the colour on the preview, see the result before applying.
+  async function bgDialog(a) {
+    let im;
+    try { im = await imageFor(a); } catch { say(errorText('image'), 'error'); return; }
+    const k = Math.min(1, 340 / im.naturalWidth, 240 / im.naturalHeight);
+    const w = Math.max(1, Math.round(im.naturalWidth * k)), h = Math.max(1, Math.round(im.naturalHeight * k));
+    const src = document.createElement('canvas'); src.width = w; src.height = h;
+    const sctx = src.getContext('2d', { willReadFrequently: true });
+    sctx.imageSmoothingQuality = 'high'; sctx.drawImage(im, 0, 0, w, h);
+    const base = sctx.getImageData(0, 0, w, h);
+    const B = { hex: edgeColor(base.data, w, h), tol: 8, all: false, picking: true };
+    openModal(`<h3>${L('Hapus warna', 'Remove a colour')}</h3>
+      <p class="muted small" style="margin:0 0 10px">${L('Klik warna yang mau dihapus pada gambar (pipet). Hasilnya langsung terlihat sebelum diterapkan.', 'Click the colour to remove on the image (eyedropper). You see the result before applying it.')}</p>
+      <div class="gs-pick" id="gsPickBox"><canvas id="gsPickCv" width="${w}" height="${h}" style="width:${w}px;height:${h}px"></canvas></div>
+      <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm is-on" id="gsPipe" aria-pressed="true">${icon('pipette', 'i i-sm')}${L('Pipet', 'Eyedropper')}</button>
+        <span class="gs-swatch" id="gsSwatch"></span><span class="val" id="gsHex"></span>
+        <span class="grow"></span>
+        <label class="row xs" style="gap:6px">${L('Warna lain', 'Other colour')}<input type="color" id="gsEdge" style="width:30px;height:26px;padding:1px"></label>
+      </div>
+      <div class="row" style="margin-top:10px"><span class="lbl">${L('Toleransi', 'Tolerance')}</span><input type="range" id="gsTol" min="0" max="50" step="1"><span class="val" id="gsTolVal" style="width:34px;text-align:right"></span></div>
+      <div class="seg" role="radiogroup" id="gsBgMode" style="margin-top:10px"><button role="radio" data-v="edge">${L('Latar saja (dari tepi)', 'Background only (from edges)')}</button><button role="radio" data-v="all">${L('Semua bagian warna ini', 'Every area of this colour')}</button></div>
+      <p class="hint" id="gsBgHint" style="margin:6px 0 0"></p>
+      <div class="modal-actions"><button class="btn btn-quiet" data-close>${L('Batal', 'Cancel')}</button><button class="btn btn-primary" id="gsBgGo">${L('Hapus warna', 'Remove colour')}</button></div>`, { wide: true });
+    const cv = $('gsPickCv'), ctx = cv.getContext('2d');
+    let timer = 0;
+    const paint = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!cv.isConnected) return;
+        const d = new ImageData(new Uint8ClampedArray(base.data), w, h);
+        const n = knockColor(d.data, w, h, B.hex, B.tol, B.all);
+        ctx.putImageData(d, 0, 0);
+        $('gsBgGo').disabled = !n;
+      }, 40);
+    };
+    const sync = () => {
+      $('gsSwatch').style.background = B.hex; $('gsHex').textContent = B.hex.toUpperCase(); $('gsEdge').value = B.hex;
+      $('gsTol').value = String(B.tol); $('gsTolVal').textContent = B.tol + '%';
+      $('gsBgMode').querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-checked', String((x.dataset.v === 'all') === B.all)));
+      $('gsBgHint').textContent = B.all ? L('Warna ini juga dihapus di dalam desain, misalnya putih di dalam huruf.', 'This colour is removed inside the design too, such as white inside letters.') : L('Hanya warna yang tersambung ke tepi gambar. Warna yang sama di dalam desain tetap aman.', 'Only colour connected to the image edge. The same colour inside the design stays.');
+      $('gsPipe').classList.toggle('is-on', B.picking); $('gsPipe').setAttribute('aria-pressed', String(B.picking));
+      $('gsPickBox').classList.toggle('picking', B.picking);
+      paint();
+    };
+    cv.addEventListener('click', (e) => {
+      if (!B.picking) return;
+      const r = cv.getBoundingClientRect();
+      const x = Math.max(0, Math.min(w - 1, Math.floor(((e.clientX - r.left) / r.width) * w))), y = Math.max(0, Math.min(h - 1, Math.floor(((e.clientY - r.top) / r.height) * h)));
+      const p = (y * w + x) * 4, px = base.data;
+      if (px[p + 3] < 20) { toast(L('Bagian itu sudah transparan. Klik bagian yang berwarna.', 'That spot is already transparent. Click a coloured spot.'), 'warn'); return; }
+      B.hex = '#' + [px[p], px[p + 1], px[p + 2]].map((v) => v.toString(16).padStart(2, '0')).join('');
+      sync();
+    });
+    $('gsPipe').onclick = () => { B.picking = !B.picking; sync(); };
+    $('gsEdge').oninput = () => { B.hex = $('gsEdge').value; sync(); };
+    $('gsTol').oninput = () => { B.tol = Number($('gsTol').value); sync(); };
+    $('gsBgMode').onclick = (e) => { const b = e.target.closest('[data-v]'); if (b) { B.all = b.dataset.v === 'all'; sync(); } };
+    sync();
     $('gsBgGo').onclick = () => {
-      const hex = $('gsEdge').value, tol = Math.max(0, Math.min(100, $('gsTol').valueAsNumber || 0));
+      const { hex, tol, all } = B;
       closeModal();
-      run(L('Memproses tepi gambar…', 'Processing the image edge…'), async () => {
-        const next = clone(G.job), updated = await removeEdgeColor(a, hex, tol);
+      run(L('Menghapus warna…', 'Removing the colour…'), async () => {
+        const next = clone(G.job), updated = await removeColor(a, hex, tol, all);
         next.arts = next.arts.map((t) => (t.id === a.id ? updated : t));
-        await arrange(next); commit(next); toast(L('Latar dihapus.', 'Background removed.'));
+        await arrange(next); commit(next); toast(L('Warna dihapus dan tepi kosong dipangkas.', 'Colour removed and the empty border trimmed.'));
       });
     };
   }

@@ -258,7 +258,7 @@ export function inspect(j) {
   const s = j.settings, arts = new Map(j.arts.map((a) => [a.id, a])), errors = [], warnings = [], unplaced = new Map(), byPage = new Map(), cache = new Map();
   for (const a of j.arts) {
     const dpi = effectiveDpi(a);
-    if (dpi < 299.5) warnings.push({ type: 'dpi', artId: a.id, name: a.name, dpi: Math.floor(dpi) });
+    if (dpi < 299.5) warnings.push({ type: 'dpi', artId: a.id, name: a.name, dpi: Math.round(dpi) });
     if (!a.vector && !a.fullMask && !a.textConfig) warnings.push({ type: 'opaque', artId: a.id, name: a.name });
   }
   for (const i of j.items) {

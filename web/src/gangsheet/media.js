@@ -218,20 +218,23 @@ export async function makeText(cfg) {
   return a;
 }
 
-// Make a plain background transparent: pixels close to the chosen colour that touch the image edge.
-export async function removeEdgeColor(a, hex, tolerance) {
-  const im = await imageFor(a), w = im.naturalWidth, h = im.naturalHeight;
-  if (w * h > 36000000) throw new Error('too_large');
-  const c = canvas(w, h), ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(im, 0, 0);
-  const data = ctx.getImageData(0, 0, w, h), px = data.data, seen = new Uint8Array(w * h), queue = new Int32Array(w * h);
+// Make a colour transparent. Edge mode: only pixels of that colour connected to the image edge
+// (the background), so the same colour inside the design stays. Everywhere mode: every matching pixel.
+export function knockColor(px, w, h, hex, tolerance, everywhere = false) {
   const rgb = [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16)), tol = tolerance * 2.55;
-  let head = 0, tail = 0, changed = false;
+  const near = (k) => Math.max(Math.abs(px[k] - rgb[0]), Math.abs(px[k + 1] - rgb[1]), Math.abs(px[k + 2] - rgb[2])) <= tol;
+  let changed = 0;
+  if (everywhere) {
+    for (let k = 0; k < px.length; k += 4) if (px[k + 3] && near(k)) { px[k + 3] = 0; changed++; }
+    return changed;
+  }
+  const seen = new Uint8Array(w * h), queue = new Int32Array(w * h);
+  let head = 0, tail = 0;
   const enter = (p) => {
     if (seen[p]) return; seen[p] = 1;
     const k = p * 4;
-    if (px[k + 3] && Math.max(Math.abs(px[k] - rgb[0]), Math.abs(px[k + 1] - rgb[1]), Math.abs(px[k + 2] - rgb[2])) > tol) return;
-    if (px[k + 3]) changed = true;
+    if (px[k + 3] && !near(k)) return;
+    if (px[k + 3]) changed++;
     px[k + 3] = 0; queue[tail++] = p;
   };
   for (let x = 0; x < w; x++) { enter(x); enter((h - 1) * w + x); }
@@ -239,12 +242,36 @@ export async function removeEdgeColor(a, hex, tolerance) {
   while (head < tail) {
     const p = queue[head++], x = p % w;
     if (x) enter(p - 1); if (x < w - 1) enter(p + 1); if (p >= w) enter(p - w); if (p < w * (h - 1)) enter(p + w);
-    if (head % 1000000 === 0) await tick();
   }
-  if (!changed) throw new Error('no_edge_color');
+  return changed;
+}
+
+// The most common opaque colour on the image border, as #rrggbb (a good first guess for the background).
+export function edgeColor(px, w, h) {
+  const counts = new Map();
+  const add = (p) => { const k = p * 4; if (px[k + 3] < 128) return; const key = ((px[k] >> 3) << 10) | ((px[k + 1] >> 3) << 5) | (px[k + 2] >> 3); counts.set(key, (counts.get(key) || 0) + 1); };
+  const step = Math.max(1, Math.floor((w + h) / 400));
+  for (let x = 0; x < w; x += step) { add(x); add((h - 1) * w + x); }
+  for (let y = 0; y < h; y += step) { add(y * w); add(y * w + w - 1); }
+  let best = null, n = 0;
+  for (const [key, c] of counts) if (c > n) { best = key; n = c; }
+  if (best === null) return '#ffffff';
+  const ch = (v) => Math.min(255, (v << 3) + 4).toString(16).padStart(2, '0');
+  return '#' + ch((best >> 10) & 31) + ch((best >> 5) & 31) + ch(best & 31);
+}
+
+export async function removeColor(a, hex, tolerance, everywhere = false) {
+  const im = await imageFor(a), w = im.naturalWidth, h = im.naturalHeight;
+  if (w * h > 36000000) throw new Error('too_large');
+  const c = canvas(w, h), ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(im, 0, 0);
+  const data = ctx.getImageData(0, 0, w, h);
+  await tick();
+  if (!knockColor(data.data, w, h, hex, tolerance, everywhere)) { c.width = c.height = 1; throw new Error(everywhere ? 'no_color' : 'no_edge_color'); }
   ctx.putImageData(data, 0, 0);
   const old = cropOf(a), next = await analyse(await readData(await blobOf(c)), a.name, { dpi: a.fileDpi });
-  next.id = a.id; next.trim = a.trim;
+  // Trim the now-transparent border so it takes no film; the print scale stays the same.
+  next.id = a.id; next.trim = true;
   const after = cropOf(next);
   next.w = (a.w * after.w) / old.w; next.h = (a.h * after.h) / old.h;
   c.width = c.height = 1;
