@@ -43,7 +43,7 @@ export async function loadWelcome() {
   emit();
 }
 export const welcomePct = () => state.welcome?.pct || 0;
-export const bonusFor = (kredit) => (state.welcome ? Math.round((kredit * state.welcome.pct) / 100) : 0);
+export const bonusFor = (kredit) => Math.round((kredit * promoPct()) / 100);
 const pad2 = (n) => String(n).padStart(2, '0');
 const fmtLeft = (ms) => { const t = Math.max(0, Math.floor(ms / 1000)); return `${pad2(Math.floor(t / 3600))}:${pad2(Math.floor((t % 3600) / 60))}:${pad2(t % 60)}`; };
 export function welcomeBanner() {
@@ -57,11 +57,50 @@ export function welcomeBanner() {
   }
   return '';
 }
+
+const promoPct = () => (state.welcome ? state.welcome.pct : (!state.user ? Number(cfg.promoPct) || 0 : 0));
+function promoExample() {
+  const pct = promoPct(); const p = state.packages.find((x) => x.populer) || state.packages[state.packages.length - 1];
+  if (!p || !pct) return '';
+  const b = Math.round((p.kredit * pct) / 100);
+  return L(`Contoh paket ${esc(pkgName(p))}: ${p.kredit} + <b>${b} bonus</b> = <b>${p.kredit + b} kredit</b> dengan harga yang sama.`, `Example, ${esc(pkgName(p))} pack: ${p.kredit} + <b>${b} bonus</b> = <b>${p.kredit + b} credits</b> for the same price.`);
+}
+// Big ticket above the price cards. Signed-in eligible users get a live countdown; guests see the rule and a sign-up button.
+export function promoTicket() {
+  const pct = promoPct(); if (!pct) return '';
+  const hours = Number(cfg.promoHours) || 24;
+  const left = state.welcome ? fmtLeft(state.welcome.endsAt - Date.now()).split(':') : null;
+  const clock = left ? `<div class="pt-clock" role="timer" aria-label="${L('Sisa waktu bonus', 'Bonus time left')}">
+      <span><b data-wp="h">${left[0]}</b><i>${L('jam', 'hrs')}</i></span><span><b data-wp="m">${left[1]}</b><i>${L('menit', 'min')}</i></span><span><b data-wp="s">${left[2]}</b><i>${L('detik', 'sec')}</i></span></div>` : `<div class="pt-note">${L(`Berlaku ${hours} jam sejak akun dibuat`, `Valid ${hours} hours from sign-up`)}</div>`;
+  const cta = state.welcome ? `<button class="btn btn-xl pt-cta" data-topup>${L('Isi kredit, ambil bonus', 'Top up, claim the bonus')}</button>` : `<button class="btn btn-xl pt-cta" data-signup>${L('Daftar, ambil bonus', 'Sign up, claim the bonus')}</button>`;
+  return `<aside class="promo-ticket" role="status">
+    <div class="pt-num" aria-hidden="true"><span>+${pct}%</span></div>
+    <div class="pt-body">
+      <h3>${L('Bonus kredit untuk akun baru', 'Bonus credits for new accounts')}</h3>
+      <p>${L(`Top-up pertama dalam ${hours} jam setelah daftar dapat <b>${pct}% kredit lebih banyak</b>.`, `Your first top-up within ${hours} hours of signing up earns <b>${pct}% more credits</b>.`)} ${promoExample()}</p>
+      <p class="pt-fine">${L('Satu kali per akun, untuk top-up pertama yang berhasil dibayar. Email harus terverifikasi.', 'Once per account, on the first paid top-up. Verified email required.')}</p>
+    </div>
+    <div class="pt-act">${clock}${cta}</div>
+  </aside>`;
+}
+// Small pill in the hero.
+export function heroPromo() {
+  const pct = promoPct(); if (!pct) return '';
+  if (state.welcome) return `<a class="hero-promo" href="#harga" data-route="harga"><b>+${pct}%</b><span>${L('kredit untuk akun baru', 'credits for new accounts')}</span><span class="hp-time mono" data-wtimer>${fmtLeft(state.welcome.endsAt - Date.now())}</span></a>`;
+  return `<a class="hero-promo" href="#harga" data-route="harga"><b>+${pct}%</b><span>${L('kredit di top-up pertama akun baru', 'credits on a new account\'s first top-up')}</span></a>`;
+}
+const setTimers = (left) => {
+  const t = fmtLeft(left), [h, m, sec] = t.split(':');
+  document.querySelectorAll('[data-wtimer]').forEach((n) => (n.textContent = t));
+  document.querySelectorAll('[data-wp="h"]').forEach((n) => (n.textContent = h));
+  document.querySelectorAll('[data-wp="m"]').forEach((n) => (n.textContent = m));
+  document.querySelectorAll('[data-wp="s"]').forEach((n) => (n.textContent = sec));
+};
 setInterval(() => {
   const w = state.welcome; if (!w) return;
   const left = w.endsAt - Date.now();
-  if (left <= 0) { state.welcome = null; document.querySelectorAll('.welcome-banner').forEach((n) => n.remove()); emit(); return; }
-  document.querySelectorAll('[data-wtimer]').forEach((n) => (n.textContent = fmtLeft(left)));
+  if (left <= 0) { state.welcome = null; document.querySelectorAll('.welcome-banner,.promo-ticket,.hero-promo').forEach((n) => n.remove()); emit(); return; }
+  setTimers(left);
 }, 1000);
 
 export async function loadPackages() {

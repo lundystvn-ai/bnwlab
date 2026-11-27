@@ -1,5 +1,5 @@
 import { esc, rupiah, icon } from './util.js';
-import { state, welcomeBanner, bonusFor } from './session.js';
+import { state, promoTicket, heroPromo, bonusFor } from './session.js';
 import { L, pkgName, pkgNote } from './i18n.js';
 import { footer } from './legal.js';
 
@@ -12,6 +12,7 @@ export function renderLanding(view) {
   <main class="landing" id="landing">
     <div class="wrap hero">
       <div>
+        <div id="heroPromo">${heroPromo()}</div>
         <span class="eyebrow">${L('Untuk usaha sablon &amp; percetakan DTF', 'For DTF print shops')}</span>
         <h1>${L('Punya usaha DTF? Wajib cek file dulu sebelum cetak.', 'Run a DTF business? Check every file before you print.')}</h1>
         <p class="lead">${L('File pecah, latar belum bersih, atau tepi berbayang baru ketahuan setelah film tercetak. <b>Cek Gambar</b> memeriksanya dalam hitungan detik, <span class="badge-free">GRATIS</span>', 'Low resolution, a dirty background or haloed edges usually show up only after the film is printed. The <b>Image Checker</b> catches them in seconds, <span class="badge-free">FREE</span>')}</p>
@@ -32,6 +33,13 @@ export function renderLanding(view) {
         <span class="ba l">${L('Sebelum', 'Before')}</span><span class="ba r">${L('Sesudah', 'After')} · Raster + Knockout</span>
         <div class="split" id="heroSplit"><button class="knob" id="heroKnob" role="slider" aria-label="${L('Bandingkan sebelum dan sesudah', 'Compare before and after')}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="52">${icon('lr')}</button></div>
       </div>
+    </div>
+
+    <div class="wrap trust" aria-label="${L('Keunggulan', 'Highlights')}">
+      <div><b>${L('5 alat', '5 tools')}</b><span>${L('Cek, halftone, vektor, gangsheet, upscale', 'Check, halftone, vector, gangsheet, upscale')}</span></div>
+      <div><b>${L('Tanpa langganan', 'No subscription')}</b><span>${L('Bayar per unduhan, kredit tidak hangus', 'Pay per download, credits never expire')}</span></div>
+      <div><b>${L('Di browser', 'In your browser')}</b><span>${L('Knockout, raster, vektor, dan gangsheet tanpa unggah', 'Knockout, raster, vector and gangsheet without uploading')}</span></div>
+      <div><b>QRIS &amp; VA</b><span>${L('Bayar dari e-wallet atau transfer bank', 'Pay from an e-wallet or by bank transfer')}</span></div>
     </div>
 
     <section class="section alt" id="fitur">
@@ -62,10 +70,13 @@ export function renderLanding(view) {
 
     <section class="section alt" id="harga">
       <div class="wrap">
-        <h2>${L(`Desain siap cetak mulai ${fromPrice}`, `Print-ready designs from ${fromPrice}`)}</h2>
-        <p class="sub">${L(`Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh: file siap cetak dari Cek Gambar 1 kredit, Raster/Knockout 2 kredit, SVG dari Vektor 1 kredit, Gangsheet 1 kredit per meter film, Upscale 1 kredit. Kredit tidak pernah hangus${bestSave ? `, dan paket ${esc(pkgName(studio))} hemat sampai ${bestSave}% per kredit` : ''}.`,
-          `Adjust and preview as much as you like, for free. Credits are only used when you download: a print-ready file from the Image Checker 1 credit, Raster/Knockout 2 credits, an SVG from Vector 1 credit, Gangsheet 1 credit per metre of film, Upscale 1 credit. Credits never expire${bestSave ? `, and the ${esc(pkgName(studio))} pack saves up to ${bestSave}% per credit` : ''}.`)}</p>
+        <h2>${L(`Bayar per unduhan, mulai ${fromPrice} per kredit`, `Pay per download, from ${fromPrice} per credit`)}</h2>
+        <p class="sub">${L('Atur dan pratinjau sepuasnya, gratis. Kredit baru terpakai saat Anda mengunduh.', 'Adjust and preview as much as you like, for free. Credits are only used when you download.')}</p>
+        <ul class="use-row" aria-label="${L('Pemakaian kredit', 'Credit usage')}">
+          <li><b>1</b> Cek Gambar</li><li><b>2</b> Raster / Knockout</li><li><b>1</b> Vektor</li><li><b>1</b> Upscale</li><li><b>1</b> ${L('per meter Gangsheet', 'per metre of Gangsheet')}</li>
+        </ul>
         <div class="prices" id="prices">${pricing()}</div>
+        <p class="fine small muted price-foot">${L('Kredit tidak pernah hangus. Bayar dengan QRIS atau Virtual Account bank.', 'Credits never expire. Pay with QRIS or a bank Virtual Account.')}</p>
       </div>
     </section>
 
@@ -96,15 +107,21 @@ const save = (p) => {
 };
 
 export function pricing() {
-  return welcomeBanner() + state.packages.map((p) => `
-    <div class="card price${p.populer ? ' pop' : ''}">
-      <div class="row"><b>${esc(pkgName(p))}</b>${p.populer ? `<span class="badge b-accent" style="margin-left:auto">${L('Terlaris', 'Most popular')}</span>` : ''}</div>
+  const pop = state.packages.find((p) => p.populer);
+  return promoTicket() + state.packages.map((p) => {
+    const b = bonusFor(p.kredit);
+    return `
+    <div class="card price${p.populer ? ' pop' : ''}${b ? ' has-bonus' : ''}">
+      ${p.populer ? `<span class="p-ribbon">${L('Terlaris', 'Most popular')}</span>` : ''}
+      <div class="p-head"><b class="p-name">${esc(pkgName(p))}</b><span class="p-note">${esc(pkgNote(p))}</span></div>
       <div class="amt">${rupiah(p.harga)}</div>
-      <div class="muted small">${L(`${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit`, `${p.kredit} credits · ${rupiah(Math.round(p.harga / p.kredit))}/credit`)}${save(p) ? ` · <b class="save">${L('hemat', 'save')} ${save(p)}%</b>` : ''}</div>
-      ${bonusFor(p.kredit) ? `<div class="pack-bonus">+${bonusFor(p.kredit)} ${L('kredit bonus', 'bonus credits')} = <b>${p.kredit + bonusFor(p.kredit)}</b> ${L('kredit', 'credits')}</div>` : ''}
-      <ul><li>${icon('check')}<span>${L(`<b>± ${Math.floor(p.kredit / 2)} desain</b> Raster/Knockout <span class="muted">atau ${p.kredit} upscale</span>`, `<b>± ${Math.floor(p.kredit / 2)} designs</b> Raster/Knockout <span class="muted">or ${p.kredit} upscales</span>`)}</span></li><li>${icon('check')}${esc(pkgNote(p) || L('Untuk semua alat', 'For every tool'))}</li><li>${icon('check')}${L('Kredit tidak hangus', 'Credits never expire')}</li></ul>
-      <button class="btn ${p.populer ? 'btn-primary' : 'btn-secondary'} btn-lg" data-topup>${L('Pilih', 'Choose')} ${esc(pkgName(p))}</button>
-    </div>`).join('');
+      <div class="p-credits">${b ? `<s>${p.kredit}</s><b>${p.kredit + b}</b>` : `<b>${p.kredit}</b>`}<span>${L('kredit', 'credits')}</span></div>
+      ${b ? `<div class="p-bonus"><i></i>+${b} ${L('bonus akun baru', 'new-account bonus')}</div>` : ''}
+      <div class="p-per">${L(`${rupiah(Math.round(p.harga / p.kredit))} per kredit`, `${rupiah(Math.round(p.harga / p.kredit))} per credit`)}${save(p) ? ` · <b class="save">${L('hemat', 'save')} ${save(p)}%</b>` : ''}</div>
+      <div class="p-use">${L(`± ${Math.floor((p.kredit + b) / 2)} desain Raster/Knockout`, `± ${Math.floor((p.kredit + b) / 2)} Raster/Knockout designs`)}</div>
+      <button class="btn ${p === pop ? 'btn-primary' : 'btn-secondary'} btn-lg" data-topup>${L('Pilih', 'Choose')} ${esc(pkgName(p))}</button>
+    </div>`;
+  }).join('');
 }
 
 export function wireCompare(box, split, knob) {

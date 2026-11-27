@@ -1,4 +1,4 @@
-import{i as h,j as n,$ as d,z as v,d as m,e as t,h as w,a as R,n as _,v as T,k as $,l as M,m as S}from"./index-7oKHpqpP.js";import{e as A}from"./engine-CxNv2iKs.js";function P(c,p={}){let f=!0,l=!1;const[k,H]=p.embedded?["<div>","</div>"]:['<div class="page"><div class="page-in">',"</div></div>"];c.innerHTML=`
+import{i as h,j as n,$ as d,z as v,d as m,e as t,h as w,a as R,n as _,v as T,k as $,l as M,m as S}from"./index-CJmfHEDV.js";import{e as A}from"./engine-CxNv2iKs.js";function P(c,p={}){let f=!0,l=!1;const[k,H]=p.embedded?["<div>","</div>"]:['<div class="page"><div class="page-in">',"</div></div>"];c.innerHTML=`
   ${k}
     <div class="page-head"><div>${p.embedded?'<h2 style="margin:0">Riwayat unduhan Knockout &amp; Raster</h2>':"<h1>Riwayat Knockout &amp; Raster</h1>"}<p>Semua unduhan PNG dari semua pengguna. Tercatat otomatis saat PNG diunduh; gambar tidak disimpan.</p></div>
       <div class="row"><button class="btn btn-secondary" id="hRefresh">${h("refresh","i i-sm")}Muat ulang</button>${n()?`<button class="btn btn-danger" id="hDelAll">${h("trash","i i-sm")}Hapus semua</button>`:""}</div></div>

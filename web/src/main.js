@@ -3,6 +3,7 @@ import { db } from './supa.js';
 import { $, closeModal, toast } from './util.js';
 import { state, onSession, applySession, clearSession, signOut, authDialog, topupDialog, newPasswordDialog, loadPackages, loadSettings, refreshCredits, isAdmin } from './session.js';
 import { renderLanding, pricing } from './landing.js';
+import { heroPromo } from './session.js';
 import { lang, L, setLang } from './i18n.js';
 import { track, excludeThisDevice } from './track.js';
 
@@ -86,7 +87,7 @@ function syncHeader() {
   $('userName').textContent = state.profile?.username || '';
 }
 onSession(syncHeader);
-onSession(() => { const p = $('prices'); if (p) p.innerHTML = pricing(); });
+onSession(() => { const p = $('prices'); if (p) p.innerHTML = pricing(); const h = $('heroPromo'); if (h) h.innerHTML = heroPromo(); });
 // Re-draw the app (and its admin menu) whenever the signed-in account or its role changes,
 // so the Admin menu never lingers for a non-admin account.
 // A guest who signs in on Halftone or Upscale keeps the work on screen: those pages refresh their
@@ -125,6 +126,7 @@ document.addEventListener('dragstart', (e) => { if (e.target.closest('canvas')) 
 
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-close]')) closeModal();
+  if (e.target.closest('[data-signup]')) { authDialog('daftar', '', () => go('editor')); return; }
   if (e.target.closest('[data-topup]')) { if (state.user) topupDialog(); else authDialog('daftar', '', () => topupDialog()); }
   if (e.target.closest('[data-cta]')) go('editor');
   const r = e.target.closest('[data-route]');
