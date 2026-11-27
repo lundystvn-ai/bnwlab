@@ -272,12 +272,15 @@ export async function topupDialog(reason = '', opts = {}) {
     ${waiting.length ? notice(L(`${waiting.length} pembayaran menunggu konfirmasi admin (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Kredit masuk otomatis setelah dicek.`, `${waiting.length} payment(s) waiting for admin confirmation (${waiting.map((p) => rupiah(p.jumlah)).join(', ')}). Credits are added once checked.`), 'warn') : ''}
     ${openVa.map((p) => `<div class="va-open"><span class="small">${L(`Transfer belum selesai: <b>${rupiah(p.jumlah + (p.biaya || 0))}</b> ke ${esc(bankName(p.va_bank))} VA`, `Unfinished transfer: <b>${rupiah(p.jumlah + (p.biaya || 0))}</b> to ${esc(bankName(p.va_bank))} VA`)}</span><button class="btn btn-secondary btn-sm" data-va="${esc(p.id)}">${L('Lihat nomor', 'Show number')}</button></div>`).join('')}
     ${welcomeBanner()}
-    <div class="pack-list" role="list">${state.packages.map((p) => `
+    <div class="pack-list" role="list">${state.packages.map((p) => { const bn = bonusFor(p.kredit); return `
       <button class="pack pack-btn${p.populer ? ' pop' : ''}" data-pack="${esc(p.id)}" role="listitem">
-        <span><span class="pack-name">${esc(pkgName(p))}${p.populer ? ` <span class="badge b-accent">${L('Terlaris', 'Most popular')}</span>` : ''}</span>
-        <span class="muted small">${L(`${p.kredit} kredit · ${rupiah(Math.round(p.harga / p.kredit))}/kredit`, `${p.kredit} credits · ${rupiah(Math.round(p.harga / p.kredit))}/credit`)} · ${esc(pkgNote(p))}</span>${bonusFor(p.kredit) ? `<span class="pack-bonus">+${bonusFor(p.kredit)} ${L('kredit bonus', 'bonus credits')} = <b>${p.kredit + bonusFor(p.kredit)}</b> ${L('kredit', 'credits')}</span>` : ''}</span>
+        <span class="pk-main">
+          <span class="pk-top"><b class="pack-name">${esc(pkgName(p))}</b>${p.populer ? `<span class="badge b-accent">${L('Terlaris', 'Most popular')}</span>` : ''}</span>
+          <span class="pk-credits">${bn ? `<b>${p.kredit + bn}</b> ${L('kredit', 'credits')} <s>${p.kredit}</s> <i class="pk-bonus">+${bn} bonus</i>` : `<b>${p.kredit}</b> ${L('kredit', 'credits')}`}</span>
+          <span class="pk-meta">${L(`${rupiah(Math.round(p.harga / p.kredit))} per kredit`, `${rupiah(Math.round(p.harga / p.kredit))} per credit`)} · ${esc(pkgNote(p))}</span>
+        </span>
         <b class="pack-price">${rupiah(p.harga)}</b>
-      </button>`).join('')}</div>
+      </button>`; }).join('')}</div>
     <p class="muted small">${L('Bayar dengan QRIS dari e-wallet atau m-banking apa pun. Kredit tidak hangus.', 'Pay with QRIS from any Indonesian e-wallet or mobile banking app. Credits never expire.')}</p>
     <div id="tpMsg"></div>`);
   document.querySelectorAll('[data-pack]').forEach((b) => (b.onclick = () => startTopup(b.dataset.pack, b, opts)));
@@ -300,7 +303,17 @@ async function startTopup(packId, btn, opts = {}) {
   }
   if (error) {
     const m = /too_many_pending/.test(error.message) ? L('Terlalu banyak pembayaran yang belum selesai. Selesaikan atau batalkan dulu.', 'Too many unfinished payments. Complete or cancel them first.') : esc(tr(error.message));
-    $('tpMsg').innerHTML = notice(m, 'error'); return;
+    $('tpMsg').innerHTML = notice(m, 'error');
+    if (/too_many_pending/.test(error.message)) {
+      $('tpMsg').insertAdjacentHTML('beforeend', `<button class="btn btn-secondary tp-clear" id="tpClear">${L('Batalkan semua tagihan yang belum dibayar', 'Cancel all unpaid invoices')}</button>`);
+      $('tpClear').onclick = async (ev) => {
+        ev.currentTarget.disabled = true;
+        const { data: rows } = await db.from('payments').select('id').eq('user_id', state.user.id).eq('status', 'pending').is('claimed_at', null);
+        for (const r of rows || []) await db.rpc('cancel_topup', { p_id: r.id });
+        topupDialog('', opts);
+      };
+    }
+    return;
   }
   let payload, svg;
   try {

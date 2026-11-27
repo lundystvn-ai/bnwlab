@@ -605,3 +605,18 @@ canvas{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 /* hero vertical rhythm (beats .wrap padding) */
 .landing .hero.wrap{padding-top:56px;padding-bottom:48px}
 @media (max-width:1000px){.landing .hero.wrap{padding-top:36px;padding-bottom:36px}}
+
+/* ---- top-up dialog: tidy pack rows ---- */
+.pack-btn{text-align:left;align-items:center;cursor:pointer;color:inherit;font:inherit;padding:12px 14px}
+.pack-btn:hover{border-color:var(--color-accent-text)}
+.pk-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pk-top{display:flex;align-items:center;gap:8px}
+.pk-credits{font-size:var(--text-base)}
+.pk-credits b{font-family:var(--font-mono);font-size:var(--text-lg)}
+.pk-credits s{opacity:.5;font-size:var(--text-sm);margin-left:2px}
+.pk-bonus{font-style:normal;font-weight:700;font-size:var(--text-sm);color:#06210f;background:var(--color-success);border-radius:5px;padding:1px 7px;margin-left:4px}
+.pk-meta{font-size:var(--text-sm);color:var(--color-text-muted)}
+.pack-price{font-size:var(--text-md)}
+.tp-clear{margin-top:10px;width:100%}
+.modal-box .welcome-banner{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center}
+.modal-box .welcome-banner .wb-time{grid-column:1/-1;padding-top:6px;border-top:1px dashed var(--color-success)}
