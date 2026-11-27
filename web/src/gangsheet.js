@@ -289,7 +289,7 @@ export function mount(host) {
   }
 
   function field(id, label, value, unit, min, max, step = 'any') {
-    return `<label class="gs-f" for="${id}"><span>${label}</span><span class="inp"><input type="number" inputmode="decimal" id="${id}" value="${esc(val(value))}" min="${min}" max="${max}" step="${step}">${unit ? `<span class="u">${unit}</span>` : ''}</span></label>`;
+    return `<label class="gs-f" for="${id}"><span>${label}</span><span class="inp"><input type="number" inputmode="decimal" id="${id}" value="${esc(val(Math.round(Number(value) * 100) / 100))}" min="${min}" max="${max}" step="${step}">${unit ? `<span class="u">${unit}</span>` : ''}</span></label>`;
   }
 
   function renderInspector() {
@@ -378,19 +378,26 @@ export function mount(host) {
     el.innerHTML = `<details class="sec" open><summary>${icon('chev', 'i i-sm chev')}${L('Ukuran film', 'Film size')}</summary><div class="sec-body">
         <div class="row"><span class="lbl">${L('Preset', 'Preset')}</span><select class="sel" id="gsPreset">${presets.map(([w, n]) => `<option value="${w}"${String(w) === preset ? ' selected' : ''}>${n}</option>`).join('')}<option value="custom"${preset === 'custom' ? ' selected' : ''}>${L('Kustom', 'Custom')}</option></select></div>
         <div class="grid2">${field('gsFw', L('Lebar film', 'Film width'), s.width / 10, 'cm', 1, 120)}${field('gsFh', L('Panjang maks.', 'Max length'), s.maxLength / 10, 'cm', 1, 500)}</div>
-        <div class="row"><span class="lbl">${L('Panjang ekspor', 'Export length')}</span><div class="seg" role="radiogroup" id="gsLenMode"><button role="radio" data-v="trim" aria-checked="${s.lengthMode === 'trim'}">${L('Sampai desain terakhir', 'To last design')}</button><button role="radio" data-v="fixed" aria-checked="${s.lengthMode === 'fixed'}">${L('Tetap', 'Fixed')}</button></div></div>
+        <div class="gs-f"><span>${L('Panjang lembar saat ekspor', 'Sheet length on export')}</span><div class="seg" role="radiogroup" id="gsLenMode"><button role="radio" data-v="trim" aria-checked="${s.lengthMode === 'trim'}">${L('Otomatis', 'Automatic')}</button><button role="radio" data-v="fixed" aria-checked="${s.lengthMode === 'fixed'}">${L('Tetap', 'Fixed')}</button></div></div>
+        <p class="hint" id="gsLenHint" style="margin:0"></p>
         <div class="grid2">${field('gsMargin', L('Margin tepi', 'Edge margin'), s.margin, 'mm', 0, 500)}${field('gsGap', L('Jarak desain', 'Gap'), s.gap, 'mm', 0, 100)}</div>
       </div></details>
       <details class="sec" open><summary>${icon('chev', 'i i-sm chev')}${L('Cara menyusun', 'Arranging')}</summary><div class="sec-body">
         <div class="seg" role="radiogroup" id="gsPacking"><button role="radio" data-v="rect" aria-checked="${s.packing === 'rect'}">${L('Kotak', 'Boxes')}</button><button role="radio" data-v="shape" aria-checked="${s.packing === 'shape'}">${L('Ikuti bentuk', 'Follow shapes')}</button></div>
-        <p class="hint" style="margin:0">${s.packing === 'shape' ? L('Desain disusun mengikuti bentuknya dan boleh mengisi bagian transparan desain lain, jadi film lebih hemat untuk logo bulat, segitiga, atau huruf L.', 'Designs are packed by their shape and may use the transparent parts of other designs, saving film for round, triangular or L-shaped logos.') : L('Setiap desain dihitung sebagai kotak. Paling cepat dan rapi untuk desain persegi.', 'Each design counts as a box. Fastest and tidiest for rectangular designs.')}</p>
+        <p class="hint" style="margin:0" id="gsPackHint">${s.packing === 'shape' ? L('Desain disusun mengikuti bentuknya dan boleh mengisi bagian transparan desain lain, jadi film lebih hemat untuk logo bulat, segitiga, atau huruf L.', 'Designs are packed by their shape and may use the transparent parts of other designs, saving film for round, triangular or L-shaped logos.') : L('Setiap desain dihitung sebagai kotak. Paling cepat dan rapi untuk desain persegi.', 'Each design counts as a box. Fastest and tidiest for rectangular designs.')}</p>
         <label class="gs-check-line"><input type="checkbox" id="gsMayRotate"${s.rotate ? ' checked' : ''}> ${L('Boleh diputar saat susun otomatis', 'Allow rotation when auto arranging')}</label>
         <label class="gs-check-line"><input type="checkbox" id="gsSnap"${s.snap ? ' checked' : ''}> ${L('Geser manual per 1 mm', 'Move by whole millimetres')}</label>
         <button class="btn btn-primary" id="gsApplyFilm">${L('Terapkan & susun ulang', 'Apply & rearrange')}</button>
         <p class="hint" style="margin:0">${L('Salinan yang melebihi panjang maksimum otomatis pindah ke lembar berikutnya.', 'Copies beyond the maximum length move to the next sheet automatically.')}</p>
       </div></details>`;
-    for (const id of ['gsLenMode', 'gsPacking']) $(id).onclick = (e) => { const b = e.target.closest('[data-v]'); if (!b) return; $(id).querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-checked', String(x === b))); };
-    $('gsPreset').onchange = () => { const v = $('gsPreset').value; if (v === 'custom') return; $('gsFw').value = val(+v / 10); if (+v === 297) { $('gsFh').value = '42'; $('gsLenMode').querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-checked', String(x.dataset.v === 'fixed'))); } };
+    const lenHint = () => { $('gsLenHint').textContent = $('gsLenMode').querySelector('[aria-checked=true]')?.dataset.v === 'fixed' ? L('Setiap lembar selalu sepanjang "Panjang maks.", walau desainnya lebih pendek.', 'Every sheet is always the full "Max length", even if the designs end earlier.') : L('Lembar berhenti tepat di desain terakhir, jadi film tidak terbuang.', 'Each sheet ends right after the last design, so no film is wasted.'); };
+    for (const id of ['gsLenMode', 'gsPacking']) $(id).onclick = (e) => { const b = e.target.closest('[data-v]'); if (!b) return; $(id).querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-checked', String(x === b))); lenHint(); };
+    lenHint();
+    $('gsPacking').addEventListener('click', () => {
+      const shape = $('gsPacking').querySelector('[aria-checked=true]')?.dataset.v === 'shape';
+      $('gsPackHint').textContent = shape ? L('Desain disusun mengikuti bentuknya dan boleh mengisi bagian transparan desain lain, jadi film lebih hemat untuk logo bulat, segitiga, atau huruf L.', 'Designs are packed by their shape and may use the transparent parts of other designs, saving film for round, triangular or L-shaped logos.') : L('Setiap desain dihitung sebagai kotak. Paling cepat dan rapi untuk desain persegi.', 'Each design counts as a box. Fastest and tidiest for rectangular designs.');
+    });
+    $('gsPreset').onchange = () => { const v = $('gsPreset').value; if (v === 'custom') return; $('gsFw').value = val(+v / 10); if (+v === 297) { $('gsFh').value = '42'; $('gsLenMode').querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-checked', String(x.dataset.v === 'fixed'))); lenHint(); } };
     $('gsFw').oninput = () => { $('gsPreset').value = 'custom'; };
     $('gsApplyFilm').onclick = () => {
       const pick = (id) => $(id).querySelector('[aria-checked=true]')?.dataset.v;
