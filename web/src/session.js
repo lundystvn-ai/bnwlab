@@ -1,7 +1,7 @@
 // Who is signed in, their role, region and credit balance. Sign-in / sign-up / reset dialogs.
 import { db, onAfterInvoke, invoke } from './supa.js';
 import { cfg, IG_DM } from './config.js';
-import { $, esc, rupiah, openModal, closeModal, notice } from './util.js';
+import { $, esc, rupiah, openModal, closeModal, notice, icon } from './util.js';
 import { leakedCount, leakedMessage } from './pwned.js';
 import { L, tr, pkgName, pkgNote } from './i18n.js';
 
@@ -186,6 +186,7 @@ export function authDialog(mode = 'masuk', email = '', after) {
     }
     btn.disabled = false; btn.textContent = label;
     if (!error && lupa) return otpDialog(em, '', after);
+    if (error && !lupa && !daftar && /not confirmed/i.test(error.message)) return checkEmailDialog(em, after, true);
     if (error) {
       const m = /invalid login/i.test(error.message)
         ? L('Email atau password salah. Belum punya password? Klik "Lupa password?" untuk membuatnya.', 'Wrong email or password. No password yet? Click "Forgot password?" to create one.')
@@ -193,7 +194,56 @@ export function authDialog(mode = 'masuk', email = '', after) {
       $('pwMsg').innerHTML = notice(m, 'error');
     } else if (session) {
       await applySession(session); closeModal(); after?.();
-    } else $('pwMsg').innerHTML = notice(okMsg, 'ok');
+    } else if (daftar) checkEmailDialog(em, after);
+    else $('pwMsg').innerHTML = notice(okMsg, 'ok');
+  };
+}
+
+// After sign-up (or a sign-in before confirming): say clearly where the email is, and let the customer send it again.
+export async function resendConfirmation(email) {
+  return db.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirectTo() } });
+}
+function checkEmailDialog(email, after, notConfirmed = false) {
+  const gmail = /@(gmail|googlemail)\.com$/i.test(email);
+  openModal(`
+    <div class="mail-check">
+      <div class="mail-ic">${icon('mail')}</div>
+      <h3>${notConfirmed ? L('Konfirmasi email dulu', 'Confirm your email first') : L('Cek email Anda', 'Check your email')}</h3>
+      <p class="muted">${notConfirmed
+        ? L(`Akun <b>${esc(email)}</b> belum dikonfirmasi. Klik link di email dari BNW Lab untuk mengaktifkannya.`, `<b>${esc(email)}</b> is not confirmed yet. Click the link in the email from BNW Lab to activate it.`)
+        : L(`Kami mengirim link konfirmasi ke <b>${esc(email)}</b>. Klik link itu untuk mengaktifkan akun dan mendapat <b>5 kredit gratis</b>.`, `We sent a confirmation link to <b>${esc(email)}</b>. Click it to activate your account and get <b>5 free credits</b>.`)}</p>
+    </div>
+    <ol class="mail-steps small">
+      <li>${L('Buka email dengan judul <b>Konfirmasi</b> dari BNW Lab / Supabase.', 'Open the <b>confirmation</b> email from BNW Lab / Supabase.')}</li>
+      <li>${L('Tidak ada di Kotak Masuk? Cek folder <b>Spam</b> dan tab <b>Promosi</b>.', 'Not in your inbox? Check <b>Spam</b> and the <b>Promotions</b> tab.')}</li>
+      <li>${L('Klik <b>Konfirmasi email</b>. Anda langsung masuk ke BNW Lab.', 'Click <b>Confirm email</b>. You are signed in to BNW Lab right away.')}</li>
+    </ol>
+    <div id="ceMsg" aria-live="polite"></div>
+    <div class="stack" style="gap:8px">
+      ${gmail ? `<a class="btn btn-primary btn-lg btn-block" href="https://mail.google.com/mail/u/0/#search/in%3Aanywhere+konfirmasi+OR+confirm+newer_than%3A1d" target="_blank" rel="noopener">${icon('mail', 'i i-sm')}${L('Buka Gmail', 'Open Gmail')}</a>` : ''}
+      <button class="btn ${gmail ? 'btn-secondary' : 'btn-primary btn-lg'} btn-block" id="ceResend">${L('Kirim ulang email', 'Send the email again')}</button>
+    </div>
+    <div class="auth-links"><a href="#" id="ceLogin">${L('Sudah konfirmasi? Masuk', 'Confirmed? Sign in')}</a><a href="#" id="ceWrong">${L('Salah email? Daftar lagi', 'Wrong email? Sign up again')}</a></div>`);
+  $('ceLogin').onclick = (e) => { e.preventDefault(); authDialog('masuk', email, after); };
+  $('ceWrong').onclick = (e) => { e.preventDefault(); authDialog('daftar', '', after); };
+  const btn = $('ceResend'), label = btn.textContent;
+  let timer = 0;
+  const cooldown = (sec) => {
+    clearInterval(timer); btn.disabled = true;
+    const tick = () => { if (!btn.isConnected) return clearInterval(timer); if (sec <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = label; return; } btn.textContent = L(`Kirim ulang dalam ${sec} dtk`, `Send again in ${sec}s`); sec--; };
+    tick(); timer = setInterval(tick, 1000);
+  };
+  if (!notConfirmed) cooldown(60);   // the first email was sent a moment ago
+  btn.onclick = async () => {
+    btn.disabled = true; btn.textContent = L('Mengirim…', 'Sending…');
+    const { error } = await resendConfirmation(email);
+    if (error) {
+      const wait = /rate|seconds|after/i.test(error.message);
+      $('ceMsg').innerHTML = notice(wait ? L('Tunggu sebentar sebelum mengirim ulang (maks. 1 kali per menit).', 'Please wait a moment before sending again (once a minute).') : esc(error.message), 'error');
+      cooldown(wait ? 60 : 5); return;
+    }
+    $('ceMsg').innerHTML = notice(L('Email baru sudah dikirim. Pakai link di email yang paling baru.', 'A new email is on its way. Use the link in the newest one.'), 'ok');
+    cooldown(60);
   };
 }
 

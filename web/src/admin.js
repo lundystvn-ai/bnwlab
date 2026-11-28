@@ -381,9 +381,18 @@ export function mount(host) {
       box.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Pengguna</th><th>Peran</th><th style="text-align:right">Kredit</th><th>Daftar</th><th>Terakhir masuk</th><th></th></tr></thead><tbody>
         ${data.map((u) => `<tr><td><b>${esc(u.username || '-')}</b><div class="xs subtle">${esc(u.email || '')}</div></td>
           <td><select class="sel" data-role="${esc(u.id)}" aria-label="Peran ${esc(u.username || '')}" ${u.id === state.user.id ? 'disabled' : ''}>${['user', 'supervisor', 'admin'].map((r) => `<option value="${r}"${u.user_role === r ? ' selected' : ''}>${r}</option>`).join('')}</select></td>
-          <td class="num mono">${num(u.credits)}</td><td class="xs">${esc(fmtDate(u.created_at))}</td><td class="xs">${u.last_sign_in_at ? esc(fmtDate(u.last_sign_in_at)) : '-'}</td>
-          <td style="white-space:nowrap"><button class="btn btn-secondary" data-adj="${esc(u.id)}">${icon('coins', 'i i-sm')}Ubah kredit</button>${u.id === state.user.id || u.user_role === 'admin' ? '' : ` <button class="btn btn-quiet" data-del="${esc(u.id)}" aria-label="Hapus akun ${esc(u.email || '')}">Hapus</button>`}</td></tr>`).join('')}</tbody></table></div>`;
+          <td class="num mono">${num(u.credits)}</td><td class="xs">${esc(fmtDate(u.created_at))}</td><td class="xs">${u.last_sign_in_at ? esc(fmtDate(u.last_sign_in_at)) : u.email_confirmed_at === null ? '<span class="badge unconfirmed" style="margin:0">Belum konfirmasi email</span>' : '-'}</td>
+          <td style="white-space:nowrap">${u.email_confirmed_at === null && u.email ? `<button class="btn btn-secondary" data-resend="${esc(u.email)}" title="Kirim ulang link konfirmasi ke ${esc(u.email)}">${icon('mail', 'i i-sm')}Kirim ulang email</button> ` : ''}<button class="btn btn-secondary" data-adj="${esc(u.id)}">${icon('coins', 'i i-sm')}Ubah kredit</button>${u.id === state.user.id || u.user_role === 'admin' ? '' : ` <button class="btn btn-quiet" data-del="${esc(u.id)}" aria-label="Hapus akun ${esc(u.email || '')}">Hapus</button>`}</td></tr>`).join('')}</tbody></table></div>`;
       box.querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => removeUser(data.find((x) => x.id === b.dataset.del), load)));
+      box.querySelectorAll('[data-resend]').forEach((b) => (b.onclick = async () => {
+        const email = b.dataset.resend;
+        if (!(await confirmBox({ title: 'Kirim ulang email konfirmasi?', body: `Link konfirmasi baru dikirim ke <b>${esc(email)}</b>. Minta pelanggan cek Kotak Masuk, Spam, dan tab Promosi.`, okLabel: 'Kirim' }))) return;
+        b.disabled = true;
+        const { resendConfirmation } = await import('./session.js');
+        const { error } = await resendConfirmation(email);
+        if (error) { b.disabled = false; toast(/rate|seconds|after/i.test(error.message) ? 'Tunggu sekitar 1 menit sebelum mengirim ulang.' : error.message); return; }
+        b.innerHTML = `${icon('check', 'i i-sm')}Terkirim`; toast('Email konfirmasi dikirim ulang.');
+      }));
       box.querySelectorAll('[data-adj]').forEach((b) => (b.onclick = () => adjust(data.find((x) => x.id === b.dataset.adj), load)));
       box.querySelectorAll('[data-role]').forEach((s) => (s.onchange = async () => {
         const u = data.find((x) => x.id === s.dataset.role);
