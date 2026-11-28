@@ -1,4 +1,4 @@
-// Gambar ulang AI: the AI redraws a blurry or broken design as a clean, sharp image for DTF.
+// Redraw AI: the AI redraws a blurry or broken design as a clean, sharp image for DTF.
 // Credits are taken when the AI runs (and given back automatically if it fails). The AI draws on flat
 // green or magenta; that background is removed here in the browser, so the download is a transparent PNG.
 import { invoke } from './supa.js';
@@ -87,7 +87,7 @@ export function mount(host) {
   const open = cfg.aiEnabled || isAdmin();
   if (!open) {
     host.innerHTML = `<div class="page"><div class="page-in" style="max-width:760px">
-      <div class="page-head"><div><h1>${L('Gambar ulang AI', 'AI redraw')}</h1></div></div>
+      <div class="page-head"><div><h1>${L('Redraw AI', 'Redraw AI')}</h1></div></div>
       ${notice(L('Fitur ini segera hadir. Sementara itu, coba Cek Gambar dan Upscale untuk memperbaiki gambar yang kurang tajam.', 'This feature is coming soon. Meanwhile, try the Image Checker and Upscale to fix soft images.'), 'warn')}
       <p class="row"><a class="btn btn-secondary" href="#cek" data-route="cek">${L('Buka Cek Gambar', 'Open Image Checker')}</a><a class="btn btn-quiet" href="#upscale" data-route="upscale">Upscale</a></p>
     </div></div>`;
@@ -124,9 +124,9 @@ export function mount(host) {
         </div>
       </section>
       <aside class="ws-side vec-side" aria-label="${L('Pengaturan', 'Settings')}">
-        <div class="ws-head"><h1>${L('Gambar ulang AI', 'AI redraw')} <span class="badge b-accent">Beta</span></h1>
+        <div class="ws-head"><h1>${L('Redraw AI', 'Redraw AI')} <span class="badge b-accent">Beta</span></h1>
           <p>${L('Desain pecah, buram, atau hasil foto digambar ulang oleh AI jadi bersih dan tajam, lalu latarnya dibuang otomatis. Kredit terpakai saat AI bekerja; kalau gagal, kredit kembali.', 'Broken, blurry or photographed designs are redrawn by AI as clean, sharp art, and the background is removed automatically. Credits are used when the AI runs; if it fails, they come back.')}</p></div>
-        ${!cfg.aiEnabled ? notice(L('Hanya admin yang melihat halaman ini. Pelanggan belum bisa membukanya sampai fitur dibuka di Admin → Gambar AI.', 'Only admins can see this page. Customers cannot open it until the feature is turned on in Admin → AI.'), 'warn') : ''}
+        ${!cfg.aiEnabled ? notice(L('Hanya admin yang melihat halaman ini. Pelanggan belum bisa membukanya sampai fitur dibuka di Admin → Redraw AI.', 'Only admins can see this page. Customers cannot open it until the feature is turned on in Admin → Redraw AI.'), 'warn') : ''}
         <div class="stack" id="aiSide"></div>
       </aside>
   </div>`;
@@ -267,7 +267,7 @@ export function mount(host) {
     if (revision && !fixes.length) { say(L('Pilih dulu apa yang perlu direvisi.', 'Pick what to revise first.'), 'warn'); return; }
     const size = revision ? base.size : A.size;
     const cost = revision ? PRICE.revise[size] : PRICE.cost[size];
-    if (state.credits < cost) { topupDialog(L(`Kredit tidak cukup. ${revision ? 'Revisi' : 'Gambar ulang AI'} ${size} memakai ${cost} kredit.`, `Not enough credits. ${revision ? 'A revision' : 'An AI redraw'} at ${size} uses ${cost} credits.`)); return; }
+    if (state.credits < cost) { topupDialog(L(`Kredit tidak cukup. ${revision ? 'Revisi' : 'Redraw AI'} ${size} memakai ${cost} kredit.`, `Not enough credits. ${revision ? 'A revision' : 'An AI redraw'} at ${size} uses ${cost} credits.`)); return; }
 
     A.busy = true; say(''); side();
     const started = Date.now();
@@ -316,7 +316,7 @@ export function mount(host) {
     } catch (e) {
       const m = String(e.message || e);
       refreshCredits();
-      if (/insufficient_credits/.test(m)) topupDialog(L(`Kredit tidak cukup. ${revision ? 'Revisi' : 'Gambar ulang AI'} ${size} memakai ${cost} kredit.`, `Not enough credits. This uses ${cost} credits.`));
+      if (/insufficient_credits/.test(m)) topupDialog(L(`Kredit tidak cukup. ${revision ? 'Revisi' : 'Redraw AI'} ${size} memakai ${cost} kredit.`, `Not enough credits. This uses ${cost} credits.`));
       else say(esc(m), 'error');
     } finally {
       clearInterval(tick); A.busy = false;

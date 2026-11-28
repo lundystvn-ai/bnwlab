@@ -1,4 +1,4 @@
-// Chroma key for "Gambar ulang AI": the AI draws the design on flat green (or magenta) because it cannot
+// Chroma key for "Redraw AI": the AI draws the design on flat green (or magenta) because it cannot
 // return transparency. This removes that background in the browser, softens the edge and cleans colour spill.
 // Pure function on RGBA pixels, so it can run in tests and in a worker.
 

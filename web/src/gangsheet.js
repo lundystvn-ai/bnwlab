@@ -886,7 +886,7 @@ export function mount(host) {
 
   pageApi = { render };
   render();
-  const handed = takeHandoff();   // a design passed on from another tool (e.g. Gambar ulang AI)
+  const handed = takeHandoff();   // a design passed on from another tool (e.g. Redraw AI)
   if (!G.restored) {
     G.restored = true; busy = true;
     restoreDraft().then((entry) => {

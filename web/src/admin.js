@@ -23,7 +23,7 @@ export function mount(host) {
       <button role="tab" data-tab="support">Support <span class="count" id="tabSupport" hidden></span></button>
       <button role="tab" data-tab="unduhan">Riwayat unduhan</button>
       <button role="tab" data-tab="qris">QRIS &amp; notifikasi</button>
-      <button role="tab" data-tab="ai">Gambar AI</button>
+      <button role="tab" data-tab="ai">Redraw AI</button>
       <button role="tab" data-tab="koneksi">Akun BigJPG</button>
     </nav>
     <div id="admBody"></div>
@@ -371,7 +371,7 @@ export function mount(host) {
     };
   }
 
-  // ---------- Gambar ulang AI: API key, provider, on/off ----------
+  // ---------- Redraw AI: API key, provider, on/off ----------
   async function aiTab() {
     const { invoke } = await import('./supa.js');
     body().innerHTML = '<div class="empty">Memuat…</div>';
@@ -384,7 +384,7 @@ export function mount(host) {
     body().innerHTML = `
       <div class="two">
         <section class="card stack">
-          <div class="toolbar" style="margin:0"><div><h2 style="margin:0;font-size:var(--text-lg)">Gambar ulang AI</h2>
+          <div class="toolbar" style="margin:0"><div><h2 style="margin:0;font-size:var(--text-lg)">Redraw AI</h2>
             <p class="small muted" style="margin:2px 0 0">Pelanggan unggah desain pecah/buram, AI menggambar ulang. ${st.cost['2K']} kredit (2K) / ${st.cost['4K']} kredit (4K), revisi ${st.revise['2K']}/${st.revise['4K']} kredit. Kredit kembali otomatis kalau AI gagal.</p></div>
             <span class="grow"></span>${st.enabled ? '<span class="badge b-success">Terbuka untuk pelanggan</span>' : '<span class="badge">Hanya admin</span>'}</div>
           ${lastErr}
@@ -463,7 +463,7 @@ export function mount(host) {
     $('aiOn').onclick = async (e) => {
       const b = e.target.closest('[data-on]'); if (!b || b.getAttribute('aria-checked') === 'true') return;
       const on = b.dataset.on === '1';
-      if (on && !(await confirmBox({ title: 'Buka Gambar ulang AI untuk pelanggan?', body: 'Menu "Gambar AI" akan muncul untuk semua pengunjung. Pastikan saldo AI sudah terisi dan hasil uji coba sudah oke.', okLabel: 'Buka' }))) return;
+      if (on && !(await confirmBox({ title: 'Buka Redraw AI untuk pelanggan?', body: 'Menu "Redraw AI" akan muncul untuk semua pengunjung. Pastikan saldo AI sudah terisi dan hasil uji coba sudah oke.', okLabel: 'Buka' }))) return;
       try { const r = await invoke('ai-redraw', { action: 'set_enabled', enabled: on }); cfg.aiEnabled = on; toast(r.message); aiTab(); }
       catch (err) { $('aiMsgA').innerHTML = notice(esc(err.message), 'error'); }
     };
