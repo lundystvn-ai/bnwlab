@@ -378,6 +378,7 @@ td .row{gap:6px;flex-wrap:nowrap}
 .vz-hit.on{fill:color-mix(in srgb,var(--color-text) 6%,transparent)}
 .vz-tip{position:absolute;top:0;transform:translateX(-50%);pointer-events:none;display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:var(--radius-md);background:var(--color-surface);border:1px solid var(--color-border);box-shadow:var(--shadow-md,0 4px 14px rgba(0,0,0,.25));font-size:var(--text-xs);white-space:nowrap}
 .vz-grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
+.vz-grid2>:last-child:nth-child(odd){grid-column:1/-1}
 .vz-table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
 .vz-table th{font-size:var(--text-xs);font-weight:600;color:var(--color-text-subtle);text-align:left;padding:0 0 6px}
 .vz-table td{padding:7px 0;border-top:1px solid var(--color-border);vertical-align:top}

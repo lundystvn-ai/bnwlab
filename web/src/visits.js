@@ -3,7 +3,8 @@ import { db } from './supa.js';
 import { esc, notice, rupiah, num } from './util.js';
 
 const PAGE = {
-  home: 'Beranda', cek: 'Cek Gambar', editor: 'Halftone', upscale: 'Upscale', kredit: 'Riwayat kredit',
+  home: 'Beranda', cek: 'Cek Gambar', editor: 'Halftone', vektor: 'Vektor', gangsheet: 'Gangsheet', upscale: 'Upscale', ai: 'Redraw AI',
+  kredit: 'Riwayat kredit', redraw: 'Redraw AI (beranda)',
   support: 'Support', harga: 'Harga (beranda)', faq: 'FAQ (beranda)', fitur: 'Fitur (beranda)', cara: 'Cara kerja (beranda)',
   privasi: 'Kebijakan privasi', ketentuan: 'Ketentuan layanan',
 };
@@ -83,6 +84,7 @@ export function renderVisits(box, isAlive) {
       <section class="card stack" style="margin-top:4px"><h3 style="margin:0;font-size:var(--text-base)">Pengunjung per hari</h3><div id="vzChart"></div></section>
       <p class="xs subtle" style="margin:12px 0 0">Rincian di bawah ini mencakup 7 hari terakhir.</p>
       <div class="vz-grid2">
+        ${data.tools ? table('Menu alat', ['Alat', 'Pengunjung', 'Dilihat'], data.tools.map((r) => ({ ...r, _label: esc(PAGE[r.name] || r.name), _cells: [num(r.visitors), num(r.pageviews)] })), (r) => r.pageviews) : ''}
         ${table('Halaman teratas', ['Halaman', 'Pengunjung', 'Dilihat'], data.pages.map((r) => ({ ...r, _label: esc(PAGE[r.name] || r.name), _cells: [num(r.visitors), num(r.pageviews)] })), (r) => r.pageviews)}
         ${table('Sumber kunjungan', ['Dari', 'Kunjungan'], data.sources.map((r) => ({ ...r, _label: sourceName(r.name), _cells: [num(r.sessions)] })), (r) => r.sessions)}
         ${table('Perangkat', ['Jenis', 'Pengunjung', 'Porsi'], data.devices.map((r) => ({ ...r, _label: esc(DEVICE[r.name] || r.name), _cells: [num(r.visitors), dv(r)] })), (r) => r.visitors)}
