@@ -18,7 +18,7 @@ window.addEventListener('load', () => setTimeout(() => { try { sessionStorage.re
 
 const APP_ROUTES = ['editor', 'vektor', 'gangsheet', 'ai', 'upscale', 'kredit', 'admin', 'support', 'cek'];
 const OPEN_ROUTES = ['support', 'cek', 'vektor', 'gangsheet', 'ai', 'editor', 'upscale'];   // app pages that guests may open too
-const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara'];
+const LANDING_SECTIONS = ['harga', 'faq', 'fitur', 'cara', 'redraw'];
 const LEGAL_ROUTES = ['privasi', 'ketentuan'];
 const BASE_TITLE = document.title;
 const view = $('view');

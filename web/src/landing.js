@@ -14,6 +14,7 @@ export function renderLanding(view) {
   <main class="landing" id="landing">
     <div class="wrap hero">
       <div>
+        ${ai ? `<a class="ai-announce" href="#redraw" data-route="redraw"><b>${icon('spark', 'i i-sm')}${L('Baru', 'New')}</b><span>${L('Redraw AI: desain pecah &amp; foto kaos jadi file siap cetak', 'Redraw AI: broken designs &amp; shirt photos into print-ready files')}</span>${icon('chev', 'i i-sm')}</a>` : ''}
         <span class="eyebrow">${L('Untuk usaha sablon &amp; percetakan DTF', 'For DTF print shops')}</span>
         <h1>${L('Punya usaha DTF? Wajib cek file dulu sebelum cetak.', 'Run a DTF business? Check every file before you print.')}</h1>
         <p class="lead">${L('File pecah, latar belum bersih, atau tepi berbayang baru ketahuan setelah film tercetak. <b>Cek Gambar</b> memeriksanya dalam hitungan detik, <span class="badge-free">GRATIS</span>', 'Low resolution, a dirty background or haloed edges usually show up only after the film is printed. The <b>Image Checker</b> catches them in seconds, <span class="badge-free">FREE</span>')}</p>
@@ -38,11 +39,13 @@ export function renderLanding(view) {
     </div>
 
     <div class="wrap trust" aria-label="${L('Keunggulan', 'Highlights')}">
-      <div><b>${L('5 alat', '5 tools')}</b><span>${L('Cek, halftone, vektor, gangsheet, upscale', 'Check, halftone, vector, gangsheet, upscale')}</span></div>
+      <div><b>${ai ? L('6 alat', '6 tools') : L('5 alat', '5 tools')}</b><span>${ai ? L('Cek, halftone, vektor, gangsheet, upscale, Redraw AI', 'Check, halftone, vector, gangsheet, upscale, Redraw AI') : L('Cek, halftone, vektor, gangsheet, upscale', 'Check, halftone, vector, gangsheet, upscale')}</span></div>
       <div><b>${L('Tanpa langganan', 'No subscription')}</b><span>${L('Bayar per unduhan, kredit tidak hangus', 'Pay per download, credits never expire')}</span></div>
       <div><b>${L('Di browser', 'In your browser')}</b><span>${L('Knockout, raster, vektor, dan gangsheet tanpa unggah', 'Knockout, raster, vector and gangsheet without uploading')}</span></div>
       <div><b>QRIS &amp; VA</b><span>${L('Bayar dari e-wallet atau transfer bank', 'Pay from an e-wallet or by bank transfer')}</span></div>
     </div>
+
+    ${ai ? redrawPromo() : ''}
 
     <section class="section alt" id="fitur">
       <div class="wrap">
@@ -87,7 +90,8 @@ export function renderLanding(view) {
       <div class="wrap">
         <h2>${L('Pertanyaan umum', 'FAQ')}</h2>
         <div class="faq">
-          ${faq(L('Apakah gambar saya disimpan?', 'Are my images stored?'), L('Untuk Knockout dan Raster, gambar diproses di browser dan tidak disimpan. Yang tercatat hanya riwayat unduhan (nama file, jenis operasi, ukuran). Fitur Upscale mengunggah gambar ke layanan upscale agar bisa diproses.', 'For Knockout and Raster, images are processed in your browser and never stored. We only log your download history (file name, operation, size). Upscale uploads the image to our upscaling service so it can be processed.'))}
+          ${faq(L('Apakah gambar saya disimpan?', 'Are my images stored?'), L('Untuk Knockout dan Raster, gambar diproses di browser dan tidak disimpan. Yang tercatat hanya riwayat unduhan (nama file, jenis operasi, ukuran). Fitur Upscale dan Redraw AI mengirim gambar ke layanan pemroses agar bisa dikerjakan.', 'For Knockout and Raster, images are processed in your browser and never stored. We only log your download history (file name, operation, size). Upscale and Redraw AI send the image to a processing service so it can be worked on.'))}
+          ${ai ? faq(L('Apa bedanya Redraw AI dengan Upscale?', 'How is Redraw AI different from Upscale?'), L('Upscale memperbesar gambar yang sudah bagus. Redraw AI menggambar ulang gambar yang pecah, buram, bergerigi, atau masih berupa foto kaos, lalu membuang latarnya. Hasil AI bisa sedikit berbeda dari aslinya, jadi selalu cek sebelum cetak. Kalau AI gagal, kredit kembali otomatis.', 'Upscale enlarges an image that is already good. Redraw AI redraws images that are broken, blurry, jagged or still a shirt photo, then removes the background. AI results can differ slightly from the original, so always check before printing. If the AI fails, your credits come back automatically.')) : ''}
           ${faq(L('Format apa yang dihasilkan?', 'What format do I get?'), L('PNG dengan latar transparan, siap dipakai di software RIP untuk DTF.', 'A PNG with a transparent background, ready for DTF RIP software.'))}
           ${faq(L('Apa yang terjadi kalau kredit habis?', 'What happens when I run out of credits?'), L('Isi kredit kapan saja. Pratinjau di layar tetap bisa dipakai; unduhan membutuhkan kredit.', 'Top up any time. On-screen previews keep working; downloads need credits.'))}
           ${faq(L('Bolehkah memakai desain milik orang lain?', 'Can I use other people\'s designs?'), L('Anda bertanggung jawab atas hak cipta gambar yang diunggah. Pastikan Anda berhak memakainya.', 'You are responsible for the copyright of the images you upload. Make sure you have the right to use them.'))}
@@ -98,6 +102,48 @@ export function renderLanding(view) {
     ${footer()}
   </main>`;
   wireCompare(view.querySelector('#heroCompare'), view.querySelector('#heroSplit'), view.querySelector('#heroKnob'));
+}
+
+// Homepage promo for Redraw AI (shown only while the feature is open to customers).
+function redrawPromo() {
+  const p = cfg.aiPrices;
+  const minPer = Math.min(...state.packages.map((x) => x.harga / x.kredit));
+  const approx = rupiah(Math.ceil((p.cost['2K'] * minPer) / 100) * 100);
+  const uses = [
+    ['expand', L('Gambar pecah &amp; buram', 'Broken &amp; blurry images'), L('Hasil screenshot, kiriman WA, atau file kecil jadi tajam. Warna dan gradasi tetap.', 'Screenshots, WhatsApp images or tiny files made sharp. Colours and gradients stay.')],
+    ['pen', L('Logo &amp; tulisan bergerigi', 'Jagged logos &amp; lettering'), L('Garis dan huruf digambar ulang rapi, ejaan tetap sama.', 'Lines and letters redrawn cleanly, same spelling.')],
+    ['halftone', L('Warna rata siap sablon', 'Flat colour, screen-print ready'), L('Gradasi dirapikan jadi blok warna, mudah dijadikan vektor.', 'Gradients turned into clean colour blocks, easy to vectorise.')],
+    ['shirt', L('Ambil desain dari foto kaos', 'Pull a design off a shirt photo'), L('Pelanggan cuma punya foto kaosnya? AI ambil desainnya saja, tanpa kain, lipatan, dan orang.', 'Customer only has a photo of the shirt? The AI keeps just the design: no fabric, folds or person.')],
+  ];
+  return `
+    <section class="section redraw" id="redraw" aria-labelledby="redrawTitle">
+      <div class="wrap redraw-grid">
+        <div class="redraw-copy">
+          <span class="redraw-tag">${icon('spark', 'i i-sm')}${L('Baru · Redraw AI', 'New · Redraw AI')}</span>
+          <h2 id="redrawTitle">${L('File dari pelanggan jelek? Biar AI yang gambar ulang.', 'Bad file from a customer? Let AI redraw it.')}</h2>
+          <p class="sub">${L('Tidak perlu lagi menolak order karena file pecah atau minta pelanggan cari file asli. Unggah gambarnya, pilih gayanya, dan unduh PNG transparan siap cetak DTF.', 'Stop turning down orders because the file is broken or chasing customers for the original. Upload the image, pick a style and download a transparent, DTF-ready PNG.')}</p>
+          <ul class="redraw-uses">
+            ${uses.map(([ic, t, d]) => `<li><span class="ic">${icon(ic)}</span><div><b>${t}</b><span>${d}</span></div></li>`).join('')}
+          </ul>
+          <ul class="redraw-perks">
+            <li>${icon('check', 'i i-sm')}${L('Latar langsung transparan', 'Background removed automatically')}</li>
+            <li>${icon('refresh', 'i i-sm')}${L('Revisi sampai 3×', 'Up to 3 revisions')}</li>
+            <li>${icon('shield', 'i i-sm')}${L('AI gagal? Kredit kembali otomatis', 'AI failed? Credits refunded automatically')}</li>
+          </ul>
+          <div class="redraw-cta">
+            <a class="btn btn-primary btn-xl" href="#ai" data-route="ai">${icon('spark', 'i i-sm')}${L('Coba Redraw AI', 'Try Redraw AI')}</a>
+            <div class="redraw-price"><b>${L(`${p.cost['2K']} kredit`, `${p.cost['2K']} credits`)}</b><span>${L(`per gambar 2K · mulai ± ${approx}`, `per 2K image · from about ${approx}`)}</span></div>
+          </div>
+        </div>
+        <figure class="redraw-shot">
+          <div class="redraw-frame">
+            <img src="/redraw-sample.webp" width="722" height="722" loading="lazy" alt="${L('Contoh hasil Redraw AI: desain YES dan SUMMER METHOD diambil dari foto kaos, latar transparan', 'Redraw AI example: the YES / SUMMER METHOD design pulled off a shirt photo, transparent background')}">
+            <span class="redraw-badge">${icon('shirt', 'i i-sm')}${L('Dari foto kaos', 'From a shirt photo')}</span>
+          </div>
+          <figcaption>${L('Hasil asli Redraw AI, gaya "Ambil desain dari foto kaos". Kotak-kotak = bagian transparan.', 'Real Redraw AI output, "pull design from shirt photo" style. Checkerboard = transparent area.')}</figcaption>
+        </figure>
+      </div>
+    </section>`;
 }
 
 const faq = (q, a) => `<details><summary>${esc(q)}${icon('chev')}</summary><p>${esc(a)}</p></details>`;
