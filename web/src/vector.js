@@ -56,11 +56,8 @@ function sampleImage() {
 export function mount(host) {
   let alive = true, worker = null, timer = 0, run = 0, drag = null, renderTimer = 0;
   host.innerHTML = `
-  <div class="page"><div class="page-in" style="max-width:1180px">
-    <div class="page-head"><div><h1>${L('Vektor', 'Vector')}</h1>
-      <p>${L('Ubah logo dan desain warna rata jadi SVG (kurva) yang tetap tajam di ukuran berapa pun. Pratinjau gratis; unduh SVG 1 kredit.', 'Turn logos and flat-colour designs into an SVG of curves that stays sharp at any size. Previews are free; downloading the SVG is 1 credit.')}</p></div></div>
-    <div class="vec-grid">
-      <section class="card vec-view">
+  <div class="ws">
+      <section class="ws-view vec-view">
         <div class="vec-bar" id="vecBar" hidden>
           <div class="seg vec-views" role="radiogroup" aria-label="${L('Tampilan', 'View')}" id="vecViews">
             <button role="radio" data-v="source">${L('Asli', 'Original')}</button><button role="radio" data-v="vector">${L('Vektor', 'Vector')}</button><button role="radio" data-v="compare">${L('Bandingkan', 'Compare')}</button>
@@ -96,7 +93,9 @@ export function mount(host) {
           <button class="btn btn-quiet btn-sm" id="vecOther">${L('Gambar lain', 'Another image')}</button>
         </div>
       </section>
-      <section class="card stack vec-side">
+      <aside class="ws-side vec-side" aria-label="${L('Pengaturan', 'Settings')}">
+        <div class="ws-head"><h1>${L('Vektor', 'Vector')}</h1>
+          <p>${L('Ubah logo dan desain warna rata jadi SVG (kurva) yang tetap tajam di ukuran berapa pun. Pratinjau gratis; unduh SVG 1 kredit.', 'Turn logos and flat-colour designs into an SVG of curves that stays sharp at any size. Previews are free; downloading the SVG is 1 credit.')}</p></div>
         <div class="row"><h2 style="margin:0;font-size:var(--text-base)">${L('Pengaturan', 'Settings')}</h2><span class="grow"></span><button class="btn btn-quiet btn-sm" id="vecReset">${L('Atur ulang', 'Reset')}</button></div>
         <div class="vec-field"><div class="row"><label for="vecColors">${L('Jumlah warna maksimal', 'Maximum colours')}</label><span class="grow"></span><output class="val" id="vecColorsVal"></output></div>
           <input type="range" id="vecColors" min="1" max="12" step="1"></div>
@@ -114,9 +113,8 @@ export function mount(host) {
         <div class="vec-inks" id="vecInks" hidden></div>
         <button class="btn btn-primary btn-lg btn-block" id="vecDl" disabled>${icon('download', 'i i-sm')}${L('Unduh SVG', 'Download SVG')} <span class="cost">· ${L('1 kredit', '1 credit')}</span></button>
         <p class="hint" style="margin:0">${L('Paling bagus untuk logo, teks, dan desain warna rata. Foto dan gradasi akan disederhanakan jadi beberapa warna.', 'Works best for logos, lettering and flat-colour designs. Photos and gradients are simplified to a few colours.')}</p>
-      </section>
-    </div>
-  </div></div>`;
+      </aside>
+  </div>`;
 
   const say = (m, t = 'ok') => { const el = $('vecMsg'); if (el) el.innerHTML = m ? notice(m, t) : ''; };
   const busy = (text) => { const b = $('vecBusy'); if (!b) return; b.hidden = !text; $('vecBusyText').textContent = text || ''; };

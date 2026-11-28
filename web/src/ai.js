@@ -95,12 +95,8 @@ export function mount(host) {
   }
 
   host.innerHTML = `
-  <div class="page"><div class="page-in" style="max-width:1180px">
-    <div class="page-head"><div><h1>${L('Gambar ulang AI', 'AI redraw')} <span class="badge b-accent">Beta</span></h1>
-      <p>${L('Desain pecah, buram, atau hasil foto digambar ulang oleh AI jadi bersih dan tajam, lalu latarnya dibuang otomatis. Kredit terpakai saat AI bekerja; kalau gagal, kredit kembali.', 'Broken, blurry or photographed designs are redrawn by AI as clean, sharp art, and the background is removed automatically. Credits are used when the AI runs; if it fails, they come back.')}</p></div></div>
-    ${!cfg.aiEnabled ? notice(L('Hanya admin yang melihat halaman ini. Pelanggan belum bisa membukanya sampai fitur dibuka di Admin → Gambar AI.', 'Only admins can see this page. Customers cannot open it until the feature is turned on in Admin → AI.'), 'warn') : ''}
-    <div class="vec-grid">
-      <section class="card vec-view">
+  <div class="ws">
+      <section class="ws-view vec-view">
         <div class="vec-bar" id="aiBar" hidden>
           <div class="seg vec-views" role="radiogroup" aria-label="${L('Tampilan', 'View')}" id="aiViews">
             <button role="radio" data-v="source">${L('Asli', 'Original')}</button><button role="radio" data-v="result">${L('Hasil AI', 'AI result')}</button>
@@ -127,9 +123,13 @@ export function mount(host) {
           <button class="btn btn-quiet btn-sm" id="aiOther">${L('Gambar lain', 'Another image')}</button>
         </div>
       </section>
-      <section class="card stack vec-side" id="aiSide"></section>
-    </div>
-  </div></div>`;
+      <aside class="ws-side vec-side" aria-label="${L('Pengaturan', 'Settings')}">
+        <div class="ws-head"><h1>${L('Gambar ulang AI', 'AI redraw')} <span class="badge b-accent">Beta</span></h1>
+          <p>${L('Desain pecah, buram, atau hasil foto digambar ulang oleh AI jadi bersih dan tajam, lalu latarnya dibuang otomatis. Kredit terpakai saat AI bekerja; kalau gagal, kredit kembali.', 'Broken, blurry or photographed designs are redrawn by AI as clean, sharp art, and the background is removed automatically. Credits are used when the AI runs; if it fails, they come back.')}</p></div>
+        ${!cfg.aiEnabled ? notice(L('Hanya admin yang melihat halaman ini. Pelanggan belum bisa membukanya sampai fitur dibuka di Admin → Gambar AI.', 'Only admins can see this page. Customers cannot open it until the feature is turned on in Admin → AI.'), 'warn') : ''}
+        <div class="stack" id="aiSide"></div>
+      </aside>
+  </div>`;
 
   // The message survives the side panel being redrawn.
   const say = (m, t = 'ok') => { A.msg = m ? [m, t] : null; const el = $('aiMsg'); if (el) el.innerHTML = m ? notice(m, t) : ''; };
@@ -218,7 +218,7 @@ export function mount(host) {
     const img = showResult ? v.canvas : A.src;
     const iw = showResult ? v.canvas.width : A.w, ih = showResult ? v.canvas.height : A.h;
     const stage = $('aiStage');
-    const fit = Math.min((stage.clientWidth - 24) / iw, (stage.clientHeight - 24) / ih, 1);
+    const fit = Math.min((stage.clientWidth - 48) / iw, (stage.clientHeight - 48) / ih, 8);
     const dw = Math.max(1, Math.round(iw * fit)), dh = Math.max(1, Math.round(ih * fit));
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     c.width = Math.round(dw * dpr); c.height = Math.round(dh * dpr);

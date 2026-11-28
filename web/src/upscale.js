@@ -19,15 +19,23 @@ export function mount(host) {
   let costs = { 2: 1, 4: 1, 8: 1, 16: 1 };
   let pollTimer = null, alive = true, file = null, metricsGen = 0;
   host.innerHTML = `
-  <div class="page"><div class="page-in">
-    <div class="page-head"><div><h1>${L('Upscale gambar', 'Upscale images')}</h1><p>${L('Perbesar gambar kecil, 1 kredit per gambar. Gambar diunggah ke server untuk diproses; kredit dikembalikan otomatis kalau gagal.', 'Enlarge small images for 1 credit each. Images are uploaded to our server for processing; credits are refunded automatically if it fails.')}</p></div></div>
-    <div class="two">
-      <form class="card stack" id="upForm" novalidate>
-        <label class="dropzone" id="upDrop" style="width:100%;padding:24px" tabindex="0">
+  <div class="ws">
+    <section class="ws-view up-view">
+      <label class="dropzone up-drop" id="upDrop" tabindex="0">
           <input type="file" id="upFile" accept="image/png,image/jpeg,image/webp" hidden>
           <span class="big">${icon('upload')}</span><strong id="upFileName">${L('Pilih gambar', 'Choose image')}</strong>
           <span class="xs subtle" id="upFileMeta">${L('PNG, JPG, atau WebP · maksimal 50 MB', 'PNG, JPG or WebP · up to 50 MB')}</span>
         </label>
+      <div class="card" id="upResult"><div class="empty">${icon('expand')}<br>${L('Hasil upscale akan tampil di sini.', 'Your upscaled image will appear here.')}</div></div>
+      <section class="up-hist">
+      <div class="toolbar"><h2>${L('Riwayat upscale', 'Upscale history')}</h2><button class="btn btn-secondary" id="upRefresh">${icon('refresh', 'i i-sm')}${L('Muat ulang', 'Reload')}</button></div>
+      ${isAdmin() ? '<div id="upMetrics" class="metrics"></div><p class="xs subtle" id="upMetricsMeta"></p>' : ''}
+      <div id="upList"><div class="empty">${L('Memuat…', 'Loading…')}</div></div>
+    </section>
+    </section>
+    <aside class="ws-side" aria-label="${L('Pengaturan', 'Settings')}">
+      <div class="ws-head"><h1>${L('Upscale gambar', 'Upscale images')}</h1><p>${L('Perbesar gambar kecil, 1 kredit per gambar. Gambar diunggah ke server untuk diproses; kredit dikembalikan otomatis kalau gagal.', 'Enlarge small images for 1 credit each. Images are uploaded to our server for processing; credits are refunded automatically if it fails.')}</p></div>
+      <form class="stack" id="upForm" novalidate>
         <div class="field"><label>${L('Perbesar', 'Enlarge')}</label><div class="seg" role="radiogroup" aria-label="${L('Skala', 'Scale')}" id="upScale" style="height:32px">
           ${[2, 4, 8, 16].map((s) => `<button type="button" role="radio" aria-checked="${s === 4}" data-v="${s}" style="height:28px">${s}× <span class="subtle" data-cost="${s}"></span></button>`).join('')}
         </div><span class="xs subtle">${L('8× dan 16× butuh waktu proses lebih lama.', '8× and 16× take longer to process.')}</span></div>
@@ -37,17 +45,10 @@ export function mount(host) {
         <div class="field"><label for="upNoise">${L('Kurangi noise', 'Noise reduction')}</label><select id="upNoise">${NOISE.map(([v, l]) => `<option value="${v}"${v === '0' ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
         <div id="upNotice" aria-live="polite"></div>
         <div id="upProgress" hidden></div>
-        <button class="btn btn-primary btn-lg" type="submit" id="upSubmit">${icon('expand', 'i i-sm')}Upscale <span class="cost" id="upCost">· ${L('1 kredit', '1 credit')}</span></button>
+        <button class="btn btn-primary btn-lg btn-block" type="submit" id="upSubmit">${icon('expand', 'i i-sm')}Upscale <span class="cost" id="upCost">· ${L('1 kredit', '1 credit')}</span></button>
       </form>
-      <div class="card" id="upResult"><div class="empty">${icon('expand')}<br>${L('Hasil upscale akan tampil di sini.', 'Your upscaled image will appear here.')}</div></div>
-    </div>
-
-    <section style="margin-top:24px">
-      <div class="toolbar"><h2>${L('Riwayat upscale', 'Upscale history')}</h2><button class="btn btn-secondary" id="upRefresh">${icon('refresh', 'i i-sm')}${L('Muat ulang', 'Reload')}</button></div>
-      ${isAdmin() ? '<div id="upMetrics" class="metrics"></div><p class="xs subtle" id="upMetricsMeta"></p>' : ''}
-      <div id="upList"><div class="empty">${L('Memuat…', 'Loading…')}</div></div>
-    </section>
-  </div></div>`;
+    </aside>
+  </div>`;
 
   const say = (m, t = 'ok') => { const el = $('upNotice'); if (el) el.innerHTML = m ? notice(m, t) : ''; };
   const sel = (g) => g.querySelector('[aria-checked=true]')?.dataset.v;
@@ -70,6 +71,13 @@ export function mount(host) {
     file = f;
     $('upFileName').textContent = f.name;
     $('upFileMeta').textContent = `${(f.size / 1048576).toFixed(1).replace('.', L(',', '.'))} MB · ${L('klik untuk ganti', 'click to change')}`;
+    // Preview the chosen image in the big area until a result replaces it.
+    const box = $('upResult');
+    if (box && !box.querySelector('a[href]')) {
+      if (box.dataset.src) URL.revokeObjectURL(box.dataset.src);
+      const u = URL.createObjectURL(f); box.dataset.src = u;
+      box.innerHTML = `<div class="stack" style="align-items:center"><img class="result-img" src="${u}" alt="${esc(f.name)}"><span class="xs muted">${L('Gambar asli. Atur di kanan, lalu tekan Upscale.', 'Original image. Adjust on the right, then press Upscale.')}</span></div>`;
+    }
   };
   input.onchange = () => pick(input.files?.[0]);
   drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } };

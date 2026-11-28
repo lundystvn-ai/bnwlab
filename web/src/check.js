@@ -35,11 +35,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 export function mount(host) {
   let thinOn = false, timer = 0;
   host.innerHTML = `
-  <div class="page"><div class="page-in" style="max-width:1100px">
-    <div class="page-head"><div><h1>${L('Cek Gambar', 'Image Checker')}</h1>
-      <p>${L('Cek, perbaiki, dan unduh file siap cetak DTF. Cek dan perbaikan gratis tanpa daftar; unduh PNG 1 kredit, upscale 1 kredit.', 'Check, fix and download a print-ready DTF file. Checking and fixing are free with no sign-up; downloading the PNG is 1 credit, upscaling 1 credit.')}</p></div></div>
-    <div class="chk-grid">
-      <section class="card chk-view">
+  <div class="ws">
+      <section class="ws-view chk-view">
         <label class="dropzone chk-drop" id="chkDrop" tabindex="0">
           <input type="file" id="chkFile" accept="image/png,image/jpeg,image/webp" hidden>
           <span class="big">${icon('upload')}</span>
@@ -55,7 +52,9 @@ export function mount(host) {
           <button class="btn btn-quiet btn-sm" id="chkOther">${L('Gambar lain', 'Another image')}</button>
         </div>
       </section>
-      <section class="card stack chk-side">
+      <aside class="ws-side chk-side" aria-label="${L('Pengaturan', 'Settings')}">
+        <div class="ws-head"><h1>${L('Cek Gambar', 'Image Checker')}</h1>
+          <p>${L('Cek, perbaiki, dan unduh file siap cetak DTF. Cek dan perbaikan gratis tanpa daftar; unduh PNG 1 kredit, upscale 1 kredit.', 'Check, fix and download a print-ready DTF file. Checking and fixing are free with no sign-up; downloading the PNG is 1 credit, upscaling 1 credit.')}</p></div>
         <div class="row"><span class="lbl">${L('Lebar cetak', 'Print width')}</span><input type="number" class="ck-width" id="chkWidth" min="1" max="200" step="0.5" inputmode="decimal" aria-label="${L('Lebar cetak dalam cm', 'Print width in cm')}"><span class="val">cm</span><span class="grow"></span><span class="badge" id="chkBadge" hidden></span></div>
         <p class="hint" style="margin:0">${L('Isi lebar desain saat dicetak di kaos. Resolusi, ketebalan garis, dan ukuran file unduhan mengikuti angka ini.', 'Enter how wide the design will print on the shirt. Resolution, line thickness and the downloaded file size follow this number.')}</p>
         <div id="chkMsg"></div>
@@ -70,9 +69,8 @@ export function mount(host) {
           <button class="btn btn-primary btn-lg btn-block" id="chkDl">${icon('download', 'i i-sm')}${L('Unduh PNG siap cetak', 'Download print-ready PNG')} <span class="cost">· ${L('1 kredit', '1 credit')}</span></button>
           <button class="btn btn-quiet btn-block" id="chkEditor">${icon('halftone', 'i i-sm')}${L('Lanjut ke Halftone (raster / knockout)', 'Continue to Halftone (raster / knockout)')}</button>
         </div>
-      </section>
-    </div>
-  </div></div>`;
+      </aside>
+  </div>`;
 
   const width = () => { const v = Number($('chkWidth').value); return v > 0 ? Math.min(200, v) : 25; };
   const dpi = () => (C.img ? dpiFor(C.img.width, width()) : 300);
@@ -90,7 +88,16 @@ export function mount(host) {
     const cx = c.getContext('2d');
     cx.putImageData(thinOn && C.result ? thinOverlay(C.img, C.result.masks) : C.img, 0, 0);
     if (C.img !== C.orig) previewMark(cx, C.img.width, C.img.height);
+    fitCanvas();
   }
+  // Show the image as large as the preview area allows (like Halftone), keeping its proportions.
+  function fitCanvas() {
+    const box = $('chkCanvasBox'), c = $('chkCanvas'); if (!box || !c || !c.width || box.hidden) return;
+    const s = Math.min((box.clientWidth - 48) / c.width, (box.clientHeight - 48) / c.height, 8);
+    if (!(s > 0)) return;
+    c.style.width = Math.round(c.width * s) + 'px'; c.style.height = Math.round(c.height * s) + 'px';
+  }
+  const fitObs = new ResizeObserver(() => fitCanvas());
   function busyUi() {
     const b = $('chkBusy'); if (!b) return;
     b.hidden = !C.busy; $('chkBusyText').textContent = C.busy || '';
@@ -109,7 +116,7 @@ export function mount(host) {
   }
   function render() {
     const list = $('chkList'); if (!list || !C.img) return;
-    $('chkDrop').hidden = true; $('chkCanvasBox').hidden = false; $('chkMeta').hidden = false; $('chkActions').hidden = false; $('chkPipeBox').hidden = false;
+    $('chkDrop').hidden = true; $('chkCanvasBox').hidden = false; requestAnimationFrame(fitCanvas); $('chkMeta').hidden = false; $('chkActions').hidden = false; $('chkPipeBox').hidden = false;
     pipeUi();
     $('chkName').textContent = `${C.name} · ${num(C.img.width)} × ${num(C.img.height)} px${C.upscaled ? ' · upscale' : ''}`;
     if (C.msg) $('chkMsg').innerHTML = notice(C.msg[0], C.msg[1]);
@@ -332,5 +339,6 @@ export function mount(host) {
 
   // restore work from before signing in / switching pages
   if (C.img) { C.result = null; draw(); render(); check(); }
-  return () => { clearTimeout(timer); document.removeEventListener('paste', onPaste); };
+  fitObs.observe($('chkCanvasBox'));
+  return () => { clearTimeout(timer); fitObs.disconnect(); document.removeEventListener('paste', onPaste); };
 }
