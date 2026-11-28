@@ -653,3 +653,13 @@ canvas{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .ai-price-grid label{display:flex;flex-direction:column;gap:3px}
 .ai-price-grid input{width:100%}
 @media (max-width:560px){.ai-price-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ai-styles{grid-template-columns:1fr 1fr}
+.ai-style{gap:4px;min-height:74px;justify-content:flex-start}
+.ai-style-top{display:flex;flex-direction:column;gap:3px}
+.ai-lvl{display:inline-flex;align-items:center;gap:3px;font-size:var(--text-xs);color:var(--color-text-muted);font-weight:400}
+.ai-lvl i{width:6px;height:6px;border-radius:50%;background:var(--color-border)}
+.ai-lvl[data-l="1"] i:nth-child(-n+1),.ai-lvl[data-l="2"] i:nth-child(-n+2),.ai-lvl[data-l="3"] i:nth-child(-n+3){background:var(--color-accent)}
+.ai-lvl i:last-of-type{margin-right:3px}
+.ai-lvl[data-l="0"]{color:var(--color-accent)}
+.ai-style-say{margin:0;padding:8px 10px;border-radius:var(--radius-sm);background:var(--color-surface-2);color:var(--color-text)}
+@media (max-width:420px){.ai-styles{grid-template-columns:1fr}}

@@ -24,7 +24,7 @@ const TIMEOUT_MS = 115_000;         // stays under the 150 s edge limit so a ref
 const MAX_INPUT_CHARS = 9_000_000;  // ~6.7 MB image as base64
 const DEFAULT_MODEL = { google: 'gemini-3.1-flash-image', openrouter: 'google/gemini-3.1-flash-image-preview' };
 const RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
-const STYLES = ['tajam', 'rapikan', 'flat'] as const;
+const STYLES = ['rapikan', 'tajam', 'flat', 'kaos'] as const;
 // Customers pick adjustments from a fixed list (no free text), so every prompt stays predictable.
 const FIXES: Record<string, string> = {
   teks: 'Make every piece of text sharp and clearly readable, with exactly the same words and spelling.',
@@ -95,14 +95,18 @@ function prompt(style: Style, chroma: 'green' | 'magenta' | 'none', note: string
       'Return only the edited image.',
     ].join('\n');
   }
+  // Four clearly different jobs, from "change as little as possible" to "pull the design off a photo".
   const base = {
-    tajam: 'Redraw this artwork as a clean, sharp, high-resolution illustration ready for DTF garment printing. Keep the exact same composition, subject, pose, text and colours. Remove blur, noise, JPEG artifacts and pixelation; make edges and lines crisp.',
-    rapikan: 'Restore this image with minimal changes so it is ready for DTF garment printing. Remove compression artifacts, noise and blur, and sharpen soft edges, but keep the original style, shading, details and colours faithful to the source.',
-    flat: 'Redraw this artwork as flat, vector-style art for DTF garment printing: solid colour areas, clean even outlines, a limited colour palette, no gradients, noise or photographic texture. Keep the same composition, subject and text.',
+    rapikan: 'Restore this exact image so it is ready for DTF garment printing. Do NOT redraw or restyle it: keep every shape, colour, gradient, shading, texture and detail exactly as in the source. Only remove blur, JPEG blocks, noise and pixelation, and sharpen the edges, so it looks like a clean high-resolution original of the same picture.',
+    tajam: 'Redraw this artwork from scratch as a clean, professional, high-resolution illustration ready for DTF garment printing. Keep the same subject, composition, colours and text, but redraw every line and edge crisp and smooth: fix jagged, broken or wobbly lines and tidy messy areas. Shading may stay, rendered cleanly.',
+    flat: 'Convert this artwork into flat, screen-print style art for DTF printing and vector tracing: only solid flat colour areas with a limited palette of about 8 colours or fewer, no gradients, shadows, glows, noise or photo texture, and clean even outlines. Keep the same subject, composition and text.',
+    kaos: 'This is a photo of a garment, bag or mockup with a printed design on it. Extract ONLY the printed design and recreate it as flat, front-facing, print-ready artwork: remove the fabric, folds, wrinkles, seams, lighting, shadows, the person, hanger and background; correct the perspective and curvature so the design is straight and undistorted; keep the original colours, shapes and text exactly. Where small parts are hidden by folds, complete them consistently with the visible design. Centre the design and let it fill most of the canvas.',
   }[style];
   return [
     base,
-    'Any text must keep exactly the same words and spelling, rendered sharply in the same lettering style. Do not add, remove or move any element. Do not add a watermark, signature, mockup or t-shirt.',
+    style === 'kaos'
+      ? 'Any text must keep exactly the same words and spelling, rendered sharply in the same lettering style. Do not add new elements. The result must show the design only: no shirt, fabric, mockup, watermark or signature.'
+      : 'Any text must keep exactly the same words and spelling, rendered sharply in the same lettering style. Do not add, remove or move any element. Do not add a watermark, signature, mockup or t-shirt.',
     bg,
     note ? `Also: ${note}` : '',
     'Return only the image.',

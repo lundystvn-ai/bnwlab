@@ -24,11 +24,19 @@ const A = {
 };
 let pageApi = null;
 
+// Four clearly different jobs, ordered from "change as little as possible" to "pull the design off a photo".
+// [id, name, best for, how much changes (1 little … 3 a lot, 0 special), what happens]
 const STYLES = () => [
-  ['tajam', L('Ilustrasi tajam', 'Sharp illustration'), L('Digambar ulang bersih, garis dan teks tegas. Cocok untuk logo, kartun, desain kaos.', 'Redrawn clean with crisp lines and text. For logos, cartoons, T-shirt designs.')],
-  ['rapikan', L('Rapikan, tetap mirip asli', 'Clean up, stay faithful'), L('Perubahan sekecil mungkin: buang blur dan kotak-kotak JPG, detail asli dipertahankan.', 'Minimal changes: removes blur and JPEG blocks, keeps the original detail.')],
-  ['flat', L('Vektor flat', 'Flat vector'), L('Warna rata tanpa gradasi, garis rapi. Paling enak dilanjutkan ke Vektor (SVG).', 'Solid colours, no gradients, tidy outlines. Best before Vector (SVG).')],
+  ['rapikan', L('Perbaiki gambar pecah', 'Fix a broken image'), L('Foto, desain penuh warna dan gradasi', 'Photos, full-colour designs with gradients'), 1,
+    L('Gambar tetap sama persis. AI hanya membuang buram, pecah, dan kotak-kotak JPG supaya tajam seperti file asli.', 'The picture stays exactly the same. The AI only removes blur, breakup and JPEG blocks so it looks like a sharp original.')],
+  ['tajam', L('Gambar ulang bersih', 'Clean redraw'), L('Logo, kartun, tulisan yang garisnya bergerigi', 'Logos, cartoons, lettering with jagged lines'), 2,
+    L('AI menggambar ulang dari awal dengan garis dan tepi tegas. Bentuk dan warna sama, tapi detail kecil bisa sedikit berbeda.', 'The AI redraws it from scratch with crisp lines and edges. Same shapes and colours, but small details can differ slightly.')],
+  ['flat', L('Warna rata (siap sablon/vektor)', 'Flat colours (screen-print/vector)'), L('Desain yang mau dijadikan SVG atau sablon', 'Designs headed for SVG or screen printing'), 3,
+    L('Gradasi, bayangan, dan tekstur dihilangkan, jadi blok warna rata (±8 warna). Paling enak dilanjutkan ke Vektor.', 'Gradients, shadows and textures are removed, leaving flat colour blocks (±8 colours). Best followed by Vector.')],
+  ['kaos', L('Ambil desain dari foto kaos', 'Take the design off a shirt photo'), L('Foto kaos, jaket, totebag, atau mockup', 'Photos of shirts, jackets, tote bags or mockups'), 0,
+    L('AI mengambil desain yang tercetak saja: diluruskan, tanpa kain, lipatan, orang, atau latar. Bagian yang tertutup lipatan dilengkapi AI, jadi cek dulu. Hasil terbaik dari foto lurus dari depan dan terang.', 'The AI takes only the printed design: straightened, without fabric, folds, people or background. Parts hidden by folds are filled in by the AI, so check it. Best from a bright, straight-on photo.')],
 ];
+const LEVEL = () => [L('Khusus', 'Special'), L('Perubahan sedikit', 'Small change'), L('Perubahan sedang', 'Medium change'), L('Perubahan banyak', 'Big change')];
 
 // Adjustments the customer can tick (the server holds the matching AI instructions).
 const FIXES = () => [
@@ -154,13 +162,16 @@ export function mount(host) {
       <div id="aiMsg" aria-live="polite">${A.msg ? notice(A.msg[0], A.msg[1]) : ''}</div>
       ${afterHtml}
       ${v ? `<h2 class="ai-again">${L('Buat ulang dengan pengaturan lain', 'Redraw with other settings')}</h2>` : ''}
-      <h2 style="margin:0;font-size:var(--text-base)">${L('Gaya', 'Style')}</h2>
-      <div class="ai-styles" role="radiogroup" aria-label="${L('Gaya', 'Style')}">${STYLES().map(([id, name, hint]) => `
-        <button class="ai-style" role="radio" data-style="${id}" aria-checked="${A.style === id}"><b>${esc(name)}</b><span class="xs muted">${esc(hint)}</span></button>`).join('')}</div>
+      <h2 style="margin:0;font-size:var(--text-base)">${L('Mau diapakan gambarnya?', 'What should happen to the image?')}</h2>
+      <div class="ai-styles" role="radiogroup" aria-label="${L('Gaya', 'Style')}">${STYLES().map(([id, name, forWhat, lvl]) => `
+        <button class="ai-style" role="radio" data-style="${id}" aria-checked="${A.style === id}">
+          <span class="ai-style-top"><b>${esc(name)}</b><span class="ai-lvl" data-l="${lvl}">${lvl ? '<i></i><i></i><i></i>' : ''}${esc(LEVEL()[lvl])}</span></span>
+          <span class="xs muted">${esc(L('Untuk: ', 'For: ') + forWhat)}</span></button>`).join('')}</div>
+      <p class="ai-style-say small">${esc(STYLES().find((x) => x[0] === A.style)?.[4] || '')}</p>
       <div class="vec-field"><label>${L('Resolusi hasil', 'Output size')}</label>
         <div class="seg" role="radiogroup" id="aiSize"><button role="radio" data-size="2K" aria-checked="${A.size === '2K'}">2K · ${PRICE.cost['2K']} ${L('kredit', 'credits')}</button><button role="radio" data-size="4K" aria-checked="${A.size === '4K'}">4K · ${PRICE.cost['4K']} ${L('kredit', 'credits')}</button></div>
         <p class="hint">${A.size === '2K' ? L('±2048 px: cukup untuk logo dan desain dada (±17 cm di 300 dpi).', '±2048 px: enough for logos and chest prints (±17 cm at 300 dpi).') : L('±4096 px: untuk desain punggung atau A3 (±35 cm di 300 dpi). Kalau AI hanya menghasilkan ukuran lebih kecil, selisih kredit dikembalikan.', '±4096 px: for back prints or A3 (±35 cm at 300 dpi). If the AI returns a smaller image, the difference is refunded.')}</p></div>
-      <div class="vec-field"><label for="aiBgSel">${L('Latar hasil', 'Result background')}</label>
+      <div class="vec-field"${A.style === 'kaos' ? ' hidden' : ''}><label for="aiBgSel">${L('Latar hasil', 'Result background')}</label>
         <select class="sel vec-sel" id="aiBgSel"><option value="transparent"${A.bg === 'transparent' ? ' selected' : ''}>${L('Buang latar (PNG transparan)', 'Remove background (transparent PNG)')}</option><option value="keep"${A.bg === 'keep' ? ' selected' : ''}>${L('Pertahankan latar asli', 'Keep the original background')}</option></select></div>
       <div class="vec-field"><label>${L('Penyesuaian', 'Adjustments')} <span class="muted xs">(${L(`opsional, maks. ${MAX_FIXES}`, `optional, up to ${MAX_FIXES}`)})</span></label>
         ${chips('aiFix', A.fixes)}</div>
@@ -269,7 +280,7 @@ export function mount(host) {
         const bmp = await loadBitmap(base.raw);
         input = await inputFor(bmp, bmp.width, bmp.height, chroma === 'magenta' ? '#ff00ff' : chroma === 'green' ? '#00ff00' : '#ffffff');
       } else {
-        if (A.bg === 'keep') chroma = 'none';
+        if (A.bg === 'keep' && A.style !== 'kaos') chroma = 'none';
         else {
           const probe = canvasOf(Math.min(256, A.w), Math.min(256, A.h)), px = probe.getContext('2d', { willReadFrequently: true });
           px.drawImage(A.src, 0, 0, probe.width, probe.height);
