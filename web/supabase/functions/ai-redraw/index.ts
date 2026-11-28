@@ -244,13 +244,16 @@ Deno.serve(async (req) => {
           const m = ce.message;
           if (/insufficient_credits/.test(m)) throw new HttpError(402, 'insufficient_credits');
           if (/rate_limited/.test(m)) throw new HttpError(429, 'Terlalu banyak permintaan dalam 1 jam. Coba lagi nanti.');
+          if (/too_many_failures/.test(m)) throw new HttpError(429, 'Beberapa percobaan terakhir gagal. Fitur AI dijeda sebentar untuk akun ini, coba lagi sekitar 1 jam lagi.');
+          if (/refused_limit/.test(m)) throw new HttpError(429, 'Beberapa gambar dari akun ini ditolak AI karena aturan konten. Fitur AI dijeda 24 jam untuk akun ini.');
+          if (/duplicate/.test(m)) throw new HttpError(409, 'Permintaan ini sudah diproses.');
           if (/revision_limit/.test(m)) throw new HttpError(409, `Revisi untuk gambar ini sudah ${MAX_REVISIONS} kali. Buat gambar baru untuk lanjut.`);
           if (/revision_expired/.test(m)) throw new HttpError(409, 'Waktu revisi (60 menit) sudah lewat. Buat gambar baru untuk lanjut.');
           console.error('charge', m); throw new HttpError(500, 'Gagal memotong kredit.');
         }
 
-        const refund = async (why: string, adminMsg?: string) => {
-          const { data: after } = await admin.rpc('ai_refund', { p_user: user.id, p_ref: ref });
+        const refund = async (why: string, adminMsg?: string, refused = false) => {
+          const { data: after } = await admin.rpc('ai_refund', { p_user: user.id, p_ref: ref, p_refused: refused });
           if (adminMsg) { console.error('ai', adminMsg); await noteError(admin, adminMsg); }
           return json({ error: why, refunded: true, balance: after }, 502);
         };
@@ -270,7 +273,7 @@ Deno.serve(async (req) => {
           return await refund(timeout ? 'AI terlalu lama merespons. Kredit sudah dikembalikan, silakan coba lagi.' : 'AI sedang tidak bisa dihubungi. Kredit sudah dikembalikan.', timeout ? undefined : `fetch: ${(e as Error)?.message}`);
         }
         clearTimeout(timer);
-        if ('refused' in out) return await refund('AI menolak gambar ini (aturan konten). Kredit sudah dikembalikan. Coba gambar lain.');
+        if ('refused' in out) return await refund('AI menolak gambar ini (aturan konten). Kredit sudah dikembalikan. Coba gambar lain.', undefined, true);
         if ('fail' in out) {
           const why = out.fail === 'busy' ? 'Server AI sedang penuh. Kredit sudah dikembalikan, coba lagi sebentar.' : 'Gambar gagal dibuat. Kredit sudah dikembalikan, coba lagi.';
           return await refund(why, out.admin);
@@ -292,11 +295,11 @@ Deno.serve(async (req) => {
         const c = await conf(admin);
         const { data: le } = await admin.from('app_secrets').select('value').eq('key', 'ai_last_error').maybeSingle();
         const start = new Date(Date.now() - 30 * 86400000).toISOString();
-        const { data: rows } = await admin.from('credit_ledger').select('reason,delta,created_at').in('reason', ['ai_redraw', 'ai_revise', 'ai_refund']).gte('created_at', start).limit(5000);
+        const { data: rows } = await admin.from('credit_ledger').select('reason,delta,created_at').in('reason', ['ai_redraw', 'ai_revise', 'ai_refund', 'ai_refund_refused']).gte('created_at', start).limit(5000);
         const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
-        const stat = { today: 0, month: 0, refunds: 0, credits: 0 };
+        const stat = { today: 0, month: 0, refunds: 0, refused: 0, credits: 0 };
         for (const r of rows ?? []) {
-          if (r.reason === 'ai_refund') { stat.refunds++; stat.credits -= r.delta; continue; }
+          if (r.reason === 'ai_refund' || r.reason === 'ai_refund_refused') { stat.refunds++; if (r.reason === 'ai_refund_refused') stat.refused++; stat.credits -= r.delta; continue; }
           stat.month++; stat.credits -= r.delta;
           if (new Date(new Date(r.created_at).getTime() + 7 * 3600000).toISOString().slice(0, 10) === today) stat.today++;
         }

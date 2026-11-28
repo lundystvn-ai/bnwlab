@@ -420,8 +420,8 @@ export function mount(host) {
         </section>
         <section class="card stack">
           <h2 style="margin:0;font-size:var(--text-lg)">Pemakaian 30 hari</h2>
-          <div class="metrics"><div class="metric"><div class="label">Hari ini</div><div class="value">${num(st.stat.today)}</div></div><div class="metric"><div class="label">30 hari</div><div class="value">${num(st.stat.month)}</div></div><div class="metric"><div class="label">Dikembalikan</div><div class="value">${num(st.stat.refunds)}</div></div><div class="metric success"><div class="label">Kredit terpakai</div><div class="value">${num(st.stat.credits)}</div></div></div>
-          <p class="xs muted" style="margin:0">Termasuk uji coba admin. Modal ke Google kira-kira $0,10 per gambar 2K dan $0,15 per gambar 4K (+PPN). Cek pemakaian sebenarnya di AI Studio → Usage / Spend.</p>
+          <div class="metrics"><div class="metric"><div class="label">Hari ini</div><div class="value">${num(st.stat.today)}</div></div><div class="metric"><div class="label">30 hari</div><div class="value">${num(st.stat.month)}</div></div><div class="metric"><div class="label">Dikembalikan${st.stat.refused ? ` (ditolak AI: ${num(st.stat.refused)})` : ''}</div><div class="value">${num(st.stat.refunds)}</div></div><div class="metric success"><div class="label">Kredit terpakai</div><div class="value">${num(st.stat.credits)}</div></div></div>
+          <p class="xs muted" style="margin:0">Pengaman otomatis: akun dijeda 1 jam setelah 4 percobaan gagal, dan 24 jam setelah 3 gambar ditolak AI karena aturan konten. Termasuk uji coba admin. Modal ke Google kira-kira $0,10 per gambar 2K dan $0,15 per gambar 4K (+PPN). Cek pemakaian sebenarnya di AI Studio → Usage / Spend.</p>
           <h3 style="margin:8px 0 0;font-size:var(--text-base)">Cara menyiapkan (Google)</h3>
           <ol class="qris-steps small" style="margin:0">
             <li>Login <b>aistudio.google.com</b> dengan akun BNW Lab → <b>Get API key</b>.</li>

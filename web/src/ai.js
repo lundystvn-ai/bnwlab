@@ -46,7 +46,8 @@ const FIXES = () => [
 ];
 const MAX_FIXES = 3;
 const MAX_NOTE = 100;
-const noteBox = (id, value, placeholder, disabled = false) => `<div class="ai-note"><input id="${id}" type="text" maxlength="${MAX_NOTE}" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off"${disabled ? ' disabled' : ''}><span class="xs subtle" id="${id}N">${value.length}/${MAX_NOTE}</span></div>`;
+// A textarea (not an input) so the browser does not pop up its autofill list over the field.
+const noteBox = (id, value, placeholder, disabled = false) => `<div class="ai-note"><textarea id="${id}" rows="2" maxlength="${MAX_NOTE}" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false"${disabled ? ' disabled' : ''}>${esc(value)}</textarea><span class="xs subtle" id="${id}N">${value.length}/${MAX_NOTE}</span></div>`;
 const chips = (id, picked, disabled = false, skip = []) => `<div class="ai-chips" id="${id}" role="group">${FIXES().filter(([k]) => !skip.includes(k)).map(([k, name]) => `<button type="button" class="ai-chip" data-fix="${k}" aria-pressed="${picked.includes(k)}"${disabled || (!picked.includes(k) && picked.length >= MAX_FIXES) ? ' disabled' : ''}>${esc(name)}</button>`).join('')}</div>`;
 
 const loadBitmap = async (blob) => { try { return await createImageBitmap(blob); } catch { const u = URL.createObjectURL(blob); try { const im = new Image(); im.src = u; await im.decode(); return im; } finally { setTimeout(() => URL.revokeObjectURL(u), 1000); } } };
@@ -198,7 +199,7 @@ export function mount(host) {
     $('aiBgSel').onchange = () => { A.bg = $('aiBgSel').value; };
     const pick = (list) => (e) => { const b = e.target.closest('[data-fix]'); if (!b || b.disabled) return; const k = b.dataset.fix; const i = list.indexOf(k); if (i >= 0) list.splice(i, 1); else if (list.length < MAX_FIXES) list.push(k); side(); };
     $('aiFix').onclick = pick(A.fixes);
-    const noteIn = (id, key, after) => { const el = $(id); if (!el) return; el.oninput = () => { A[key] = el.value.slice(0, MAX_NOTE); $(id + 'N').textContent = `${A[key].length}/${MAX_NOTE}`; after?.(); }; };
+    const noteIn = (id, key, after) => { const el = $(id); if (!el) return; el.onkeydown = (e) => { if (e.key === 'Enter') e.preventDefault(); }; el.oninput = () => { A[key] = el.value.slice(0, MAX_NOTE); $(id + 'N').textContent = `${A[key].length}/${MAX_NOTE}`; after?.(); }; };
     noteIn('aiNote', 'note');
     if ($('aiMock')) $('aiMock').onchange = () => { A.mock = $('aiMock').checked; side(); };
     if ($('aiMockFail')) $('aiMockFail').onchange = () => { A.mockFail = $('aiMockFail').checked; };
