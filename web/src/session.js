@@ -141,6 +141,21 @@ export async function signOut() { await db.auth.signOut(); clearSession(); }
 // ---------- dialogs ----------
 const redirectTo = () => location.origin + location.pathname;
 
+// Failed sign-ins: after 5 wrong passwords for one email (or 10 in total) this browser waits 15 minutes.
+// It slows down people guessing through the form; Supabase's own limits and CAPTCHA protect the API itself.
+const LOCK = { perEmail: 5, total: 10, minutes: 15, key: 'bnw-login-fails' };
+function failLog() { try { return JSON.parse(localStorage.getItem(LOCK.key) || '[]').filter((f) => Date.now() - f.t < LOCK.minutes * 60000); } catch { return []; } }
+function saveFails(list) { try { localStorage.setItem(LOCK.key, JSON.stringify(list.slice(-30))); } catch { /* private mode */ } }
+function lockState(email) {
+  const list = failLog(), mine = list.filter((f) => f.e === email);
+  const hit = mine.length >= LOCK.perEmail ? mine : list.length >= LOCK.total ? list : null;
+  const until = hit ? hit[hit.length - 1].t + LOCK.minutes * 60000 : 0;
+  return { locked: until > Date.now(), until, left: Math.max(0, Math.min(LOCK.perEmail - mine.length, LOCK.total - list.length)) };
+}
+const noteFail = (email) => saveFails([...failLog(), { e: email, t: Date.now() }]);
+const clearFails = (email) => saveFails(failLog().filter((f) => f.e !== email));
+const minutesLeft = (until) => Math.max(1, Math.ceil((until - Date.now()) / 60000));
+
 export function authDialog(mode = 'masuk', email = '', after) {
   if (mode === 'link') mode = 'masuk';
   const daftar = mode === 'daftar', lupa = mode === 'lupa', noPass = lupa;
@@ -181,15 +196,29 @@ export function authDialog(mode = 'masuk', email = '', after) {
       okMsg = L(`Akun dibuat. Cek email <b>${esc(em)}</b> dan klik link konfirmasi, lalu masuk.`, `Account created. Check <b>${esc(em)}</b>, click the confirmation link, then sign in.`);
       if (!error && r.data?.user && r.data.user.identities?.length === 0) error = { message: L('Email ini sudah terdaftar. Silakan masuk, atau pakai "Lupa password".', 'This email is already registered. Sign in, or use "Forgot password".') };
     } else {
+      const lk = lockState(em);
+      if (lk.locked) {
+        btn.disabled = false; btn.textContent = label;
+        $('pwMsg').innerHTML = notice(L(`Terlalu banyak percobaan gagal. Coba lagi dalam <b>${minutesLeft(lk.until)} menit</b>, atau klik <a href="#" data-pw-lupa>Lupa password?</a> untuk membuat password baru.`, `Too many failed attempts. Try again in <b>${minutesLeft(lk.until)} min</b>, or click <a href="#" data-pw-lupa>Forgot password?</a> to set a new one.`), 'error');
+        $('pwMsg').querySelector('[data-pw-lupa]').onclick = (ev) => { ev.preventDefault(); authDialog('lupa', em, after); };
+        return;
+      }
       const r = await db.auth.signInWithPassword({ email: em, password: $('pwPass').value });
       error = r.error; session = r.data?.session;
+      if (error && /invalid login/i.test(error.message)) noteFail(em);
+      if (!error) clearFails(em);
     }
     btn.disabled = false; btn.textContent = label;
     if (!error && lupa) return otpDialog(em, '', after);
     if (error && !lupa && !daftar && /not confirmed/i.test(error.message)) return checkEmailDialog(em, after, true);
     if (error) {
+      const lk = !lupa && !daftar ? lockState(em) : null;
       const m = /invalid login/i.test(error.message)
-        ? L('Email atau password salah. Belum punya password? Klik "Lupa password?" untuk membuatnya.', 'Wrong email or password. No password yet? Click "Forgot password?" to create one.')
+        ? (lk?.locked
+          ? L(`Password salah 5 kali. Demi keamanan, coba lagi dalam <b>${minutesLeft(lk.until)} menit</b>, atau pakai "Lupa password?" untuk membuat password baru.`, `Wrong password 5 times. For security, try again in <b>${minutesLeft(lk.until)} min</b>, or use "Forgot password?" to set a new one.`)
+          : L(`Email atau password salah. Sisa percobaan: <b>${lk?.left ?? ''}</b>. Lupa? Klik "Lupa password?".`, `Wrong email or password. Attempts left: <b>${lk?.left ?? ''}</b>. Forgot it? Click "Forgot password?".`))
+        : /too many|rate limit|429/i.test(error.message)
+        ? L('Terlalu banyak percobaan dari jaringan ini. Tunggu beberapa menit lalu coba lagi.', 'Too many attempts from this network. Wait a few minutes and try again.')
         : /not confirmed/i.test(error.message) ? L('Email belum dikonfirmasi. Cek email dan klik link konfirmasi.', 'Your email is not confirmed yet. Check your inbox and click the confirmation link.') : esc(error.message);
       $('pwMsg').innerHTML = notice(m, 'error');
     } else if (session) {
