@@ -1,4 +1,4 @@
-import{L as t,i as b,k as n,a as c,$ as i,w as f,t as y,x as T,d as v,n as x,e as s,y as h,l as C,z as B,h as p,A as w}from"./index-CukTzMo2.js";const _={paid:[t("Berhasil","Paid"),"b-success"],failed:[t("Ditolak","Rejected"),"b-danger"],expired:[t("Dibatalkan","Cancelled"),""]};function L(g){let l=!0;g.innerHTML=`
+import{L as t,i as b,k as n,a as c,$ as i,w as f,t as y,x as T,d as v,n as x,e as s,y as h,l as C,z as B,h as p,A as w}from"./index-Bk-oC2H_.js";const _={paid:[t("Berhasil","Paid"),"b-success"],failed:[t("Ditolak","Rejected"),"b-danger"],expired:[t("Dibatalkan","Cancelled"),""]};function L(g){let l=!0;g.innerHTML=`
   <div class="page"><div class="page-in" style="max-width:880px">
     <div class="page-head"><div><h1>${t("Riwayat pembelian kredit","Credit purchase history")}</h1><p>${t("Semua pembelian kredit lewat QRIS dan statusnya.","All your QRIS credit purchases and their status.")}</p></div>
       <div class="row"><button class="btn btn-secondary" id="cRefresh">${b("refresh","i i-sm")}${t("Muat ulang","Reload")}</button><button class="btn btn-primary" id="cTopup">${b("plus","i i-sm")}${t("Isi kredit","Top up")}</button></div></div>

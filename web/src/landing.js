@@ -102,6 +102,7 @@ export function renderLanding(view) {
     ${footer()}
   </main>`;
   wireCompare(view.querySelector('#heroCompare'), view.querySelector('#heroSplit'), view.querySelector('#heroKnob'));
+  wireCompare(view.querySelector('#rdCompare'), view.querySelector('#rdSplit'), view.querySelector('#rdKnob'));
 }
 
 // Homepage promo for Redraw AI (shown only while the feature is open to customers).
@@ -136,11 +137,14 @@ function redrawPromo() {
           </div>
         </div>
         <figure class="redraw-shot">
-          <div class="redraw-frame">
-            <img src="/redraw-sample.webp" width="722" height="722" loading="lazy" alt="${L('Contoh hasil Redraw AI: desain YES dan SUMMER METHOD diambil dari foto kaos, latar transparan', 'Redraw AI example: the YES / SUMMER METHOD design pulled off a shirt photo, transparent background')}">
-            <span class="redraw-badge">${icon('shirt', 'i i-sm')}${L('Dari foto kaos', 'From a shirt photo')}</span>
+          <div class="compare redraw-compare" id="rdCompare" aria-label="${L('Perbandingan foto kaos dan hasil Redraw AI', 'Shirt photo vs Redraw AI result')}">
+            <img class="after" src="/redraw-sample.webp" width="722" height="722" loading="lazy" alt="${L('Hasil Redraw AI: desain YES dan SUMMER METHOD tanpa kaos dan orang, latar transparan', 'Redraw AI result: the YES / SUMMER METHOD design without the shirt or person, transparent background')}" draggable="false">
+            <img class="before" src="/redraw-before.webp" width="722" height="722" loading="lazy" alt="${L('Foto kaos asli dari pelanggan', 'Original shirt photo from the customer')}" draggable="false">
+            <span class="ba l">${L('Foto kaos', 'Shirt photo')}</span><span class="ba r">${L('Hasil Redraw AI', 'Redraw AI result')}</span>
+            <div class="split" id="rdSplit"><button class="knob" id="rdKnob" role="slider" aria-label="${L('Bandingkan foto kaos dan hasil AI', 'Compare shirt photo and AI result')}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="52">${icon('lr')}</button></div>
+            <span class="redraw-src"><img src="/redraw-photo-thumb.webp" width="240" height="360" alt="" loading="lazy">${L('Foto asli', 'Original')}</span>
           </div>
-          <figcaption>${L('Hasil asli Redraw AI, gaya "Ambil desain dari foto kaos". Kotak-kotak = bagian transparan.', 'Real Redraw AI output, "pull design from shirt photo" style. Checkerboard = transparent area.')}</figcaption>
+          <figcaption>${L('Contoh asli: foto kaos dari WhatsApp → gaya "Ambil desain dari foto kaos". Geser garis untuk membandingkan. Kotak-kotak = bagian transparan.', 'Real example: a WhatsApp shirt photo → "pull design from shirt photo" style. Drag the line to compare. Checkerboard = transparent area.')}</figcaption>
         </figure>
       </div>
     </section>`;
