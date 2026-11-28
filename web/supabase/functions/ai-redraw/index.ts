@@ -1,4 +1,4 @@
-// Edge Function: ai-redraw — "Gambar ulang AI".
+// Edge Function: ai-redraw — "Redraw AI".
 // Customer: info (prices, on/off), generate (new image or revision).
 // Admin: config_status, save_config, test, set_enabled.
 // Credits are taken before the AI runs and given back automatically when it fails.
@@ -86,7 +86,7 @@ function ratioFor(w: number, h: number) {
 function prompt(style: Style, chroma: 'green' | 'magenta' | 'none', note: string, revision: boolean) {
   const bg = chroma === 'none'
     ? 'Keep the original background.'
-    : `Put the design on a perfectly flat, uniform pure ${chroma} background (${chroma === 'green' ? '#00FF00' : '#FF00FF'}) that fills the whole canvas: no shadows, gradients, texture, border or frame. Do not use that ${chroma} colour anywhere inside the design itself.`;
+    : `${style === 'kaos' ? 'Everything that is not part of the printed graphic must be background. ' : ''}Put the design on a perfectly flat, uniform pure ${chroma} background (${chroma === 'green' ? '#00FF00' : '#FF00FF'}) that fills the whole canvas: no shadows, gradients, texture, border or frame. Do not use that ${chroma} colour anywhere inside the design itself.`;
   if (revision) {
     return [
       'Edit this artwork. Change only what the request below asks for and keep everything else exactly the same: composition, subject, text, colours and line style.',
@@ -100,7 +100,7 @@ function prompt(style: Style, chroma: 'green' | 'magenta' | 'none', note: string
     rapikan: 'Restore this exact image so it is ready for DTF garment printing. Do NOT redraw or restyle it: keep every shape, colour, gradient, shading, texture and detail exactly as in the source. Only remove blur, JPEG blocks, noise and pixelation, and sharpen the edges, so it looks like a clean high-resolution original of the same picture.',
     tajam: 'Redraw this artwork from scratch as a clean, professional, high-resolution illustration ready for DTF garment printing. Keep the same subject, composition, colours and text, but redraw every line and edge crisp and smooth: fix jagged, broken or wobbly lines and tidy messy areas. Shading may stay, rendered cleanly.',
     flat: 'Convert this artwork into flat, screen-print style art for DTF printing and vector tracing: only solid flat colour areas with a limited palette of about 8 colours or fewer, no gradients, shadows, glows, noise or photo texture, and clean even outlines. Keep the same subject, composition and text.',
-    kaos: 'This is a photo of a garment, bag or mockup with a printed design on it. Extract ONLY the printed design and recreate it as flat, front-facing, print-ready artwork: remove the fabric, folds, wrinkles, seams, lighting, shadows, the person, hanger and background; correct the perspective and curvature so the design is straight and undistorted; keep the original colours, shapes and text exactly. Where small parts are hidden by folds, complete them consistently with the visible design. Centre the design and let it fill most of the canvas.',
+    kaos: 'Look at the graphic printed on the garment, bag or mockup in this photo. Create a brand-new, flat, front-facing digital artwork file of ONLY that printed graphic, exactly as the designer\'s original file looked before it was printed. The output must NOT be a photo: no person, face, hair, skin, arms or hands, no garment, collar, sleeves, fabric texture, folds, seams, shadows, hanger, mockup or background scene - only the graphic itself. Straighten any perspective or curvature, keep the original colours, shapes and lettering exactly, and complete parts hidden by folds consistently with the visible design. Centre the graphic and let it fill about 85% of the canvas.',
   }[style];
   return [
     base,
@@ -216,7 +216,7 @@ Deno.serve(async (req) => {
         if (!/^image\/(png|jpeg|webp)$/.test(mime) || data.length < 100 || data.length > MAX_INPUT_CHARS || /[^A-Za-z0-9+/=]/.test(data.slice(0, 2000))) throw new HttpError(400, 'Gambar tidak valid atau terlalu besar (maks. ±6 MB).');
 
         const adminUser = await isAdmin();
-        if (!(await enabled(admin)) && !adminUser) throw new HttpError(403, 'Fitur Gambar ulang AI belum dibuka.');
+        if (!(await enabled(admin)) && !adminUser) throw new HttpError(403, 'Fitur Redraw AI belum dibuka.');
         // Admin-only dry run: the full credit flow with the uploaded image echoed back instead of an AI call.
         const mock = body.mock === true && adminUser;
         const c = await conf(admin);
@@ -253,7 +253,8 @@ Deno.serve(async (req) => {
         let out: Out;
         try {
           const text = prompt(style, chroma, note, !!parent);
-          const ratio = ratioFor(Number(body.w), Number(body.h));
+          // A shirt photo's shape says nothing about the design's shape: use a square canvas (empty space is trimmed later).
+          const ratio = style === 'kaos' && !parent ? '1:1' : ratioFor(Number(body.w), Number(body.h));
           out = mock ? (body.mock_fail === true ? { fail: 'provider', admin: 'uji coba gagal (mock)' } : { data, mime })
             : c.provider === 'google' ? await callGoogle(c, text, { mime, data }, ratio, size, ctl.signal) : await callOpenRouter(c, text, { mime, data }, ratio, size, ctl.signal);
         } catch (e) {
@@ -355,7 +356,7 @@ Deno.serve(async (req) => {
         if (on && !(await conf(admin)).key) throw new HttpError(400, 'Isi API key dulu sebelum membuka fitur untuk pelanggan.');
         const { error } = await admin.from('app_settings').upsert({ key: 'ai_enabled', value: on ? '1' : '0', updated_at: new Date().toISOString() });
         if (error) throw new HttpError(500, 'Gagal menyimpan.');
-        return json({ message: on ? 'Gambar ulang AI dibuka untuk pelanggan.' : 'Gambar ulang AI disembunyikan dari pelanggan.' });
+        return json({ message: on ? 'Redraw AI dibuka untuk pelanggan.' : 'Redraw AI disembunyikan dari pelanggan.' });
       }
       default:
         throw new HttpError(400, 'Aksi tidak dikenal.');

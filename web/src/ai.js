@@ -45,7 +45,7 @@ const FIXES = () => [
   ['simpel', L('Lebih sederhana', 'Simpler')], ['bersih', L('Buang bintik/kotoran', 'Remove specks')],
 ];
 const MAX_FIXES = 3;
-const chips = (id, picked, disabled = false) => `<div class="ai-chips" id="${id}" role="group">${FIXES().map(([k, name]) => `<button type="button" class="ai-chip" data-fix="${k}" aria-pressed="${picked.includes(k)}"${disabled || (!picked.includes(k) && picked.length >= MAX_FIXES) ? ' disabled' : ''}>${esc(name)}</button>`).join('')}</div>`;
+const chips = (id, picked, disabled = false, skip = []) => `<div class="ai-chips" id="${id}" role="group">${FIXES().filter(([k]) => !skip.includes(k)).map(([k, name]) => `<button type="button" class="ai-chip" data-fix="${k}" aria-pressed="${picked.includes(k)}"${disabled || (!picked.includes(k) && picked.length >= MAX_FIXES) ? ' disabled' : ''}>${esc(name)}</button>`).join('')}</div>`;
 
 const loadBitmap = async (blob) => { try { return await createImageBitmap(blob); } catch { const u = URL.createObjectURL(blob); try { const im = new Image(); im.src = u; await im.decode(); return im; } finally { setTimeout(() => URL.revokeObjectURL(u), 1000); } } };
 const toB64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(new Error('read')); r.readAsDataURL(blob); });
@@ -174,7 +174,7 @@ export function mount(host) {
       <div class="vec-field"${A.style === 'kaos' ? ' hidden' : ''}><label for="aiBgSel">${L('Latar hasil', 'Result background')}</label>
         <select class="sel vec-sel" id="aiBgSel"><option value="transparent"${A.bg === 'transparent' ? ' selected' : ''}>${L('Buang latar (PNG transparan)', 'Remove background (transparent PNG)')}</option><option value="keep"${A.bg === 'keep' ? ' selected' : ''}>${L('Pertahankan latar asli', 'Keep the original background')}</option></select></div>
       <div class="vec-field"><label>${L('Penyesuaian', 'Adjustments')} <span class="muted xs">(${L(`opsional, maks. ${MAX_FIXES}`, `optional, up to ${MAX_FIXES}`)})</span></label>
-        ${chips('aiFix', A.fixes)}</div>
+        ${chips('aiFix', A.fixes, false, A.style === 'kaos' ? ['asli'] : [])}</div>
       ${isAdmin() ? `<div class="stack" style="gap:4px"><label class="row xs muted" style="gap:8px"><input type="checkbox" id="aiMock"${A.mock ? ' checked' : ''}> ${L('Uji coba tanpa AI (admin): alur kredit sungguhan, gambar asli dikembalikan.', 'Dry run without AI (admin): real credit flow, the original image comes back.')}</label>
         <label class="row xs muted" style="gap:8px"${A.mock ? '' : ' hidden'}><input type="checkbox" id="aiMockFail"${A.mockFail ? ' checked' : ''}> ${L('Simulasikan AI gagal (cek kredit kembali)', 'Simulate an AI failure (check the refund)')}</label></div>` : ''}
       <button class="btn ${v ? 'btn-secondary' : 'btn-primary btn-lg'} btn-block" id="aiGo"${!A.src || A.busy ? ' disabled' : ''}>${icon('spark', 'i i-sm')}${v ? L('Gambar ulang lagi', 'Redraw again') : L('Gambar ulang', 'Redraw')} <span class="cost">· ${c} ${L('kredit', 'credits')}</span></button>
@@ -183,7 +183,11 @@ export function mount(host) {
   }
 
   function bindSide() {
-    $('aiSide').querySelectorAll('[data-style]').forEach((b) => (b.onclick = () => { A.style = b.dataset.style; side(); }));
+    $('aiSide').querySelectorAll('[data-style]').forEach((b) => (b.onclick = () => {
+      A.style = b.dataset.style;
+      if (A.style === 'kaos') { const i = A.fixes.indexOf('asli'); if (i >= 0) A.fixes.splice(i, 1); }   // "closer to the original" would keep the photo
+      side();
+    }));
     $('aiSize').onclick = (e) => { const b = e.target.closest('[data-size]'); if (!b) return; A.size = b.dataset.size; side(); };
     $('aiBgSel').onchange = () => { A.bg = $('aiBgSel').value; };
     const pick = (list) => (e) => { const b = e.target.closest('[data-fix]'); if (!b || b.disabled) return; const k = b.dataset.fix; const i = list.indexOf(k); if (i >= 0) list.splice(i, 1); else if (list.length < MAX_FIXES) list.push(k); side(); };
