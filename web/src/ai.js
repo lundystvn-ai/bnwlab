@@ -18,8 +18,8 @@ const MAX_FILE = 25 * 1048576;
 // Kept outside the page so the work survives signing in or switching pages.
 const A = {
   file: null, name: '', src: null, w: 0, h: 0,
-  style: 'tajam', size: '2K', bg: 'transparent', fixes: [], strength: 50,
-  versions: [], cur: -1, rootId: null, rootAt: 0, chroma: 'green', revFixes: [],
+  style: 'tajam', size: '2K', bg: 'transparent', fixes: [], note: '', strength: 50,
+  versions: [], cur: -1, rootId: null, rootAt: 0, chroma: 'green', revFixes: [], revNote: '',
   busy: false, view: 'result', preview: 'check', mock: false, mockFail: false, downloaded: true,
 };
 let pageApi = null;
@@ -45,6 +45,8 @@ const FIXES = () => [
   ['simpel', L('Lebih sederhana', 'Simpler')], ['bersih', L('Buang bintik/kotoran', 'Remove specks')],
 ];
 const MAX_FIXES = 3;
+const MAX_NOTE = 100;
+const noteBox = (id, value, placeholder, disabled = false) => `<div class="ai-note"><input id="${id}" type="text" maxlength="${MAX_NOTE}" value="${esc(value)}" placeholder="${esc(placeholder)}" autocomplete="off"${disabled ? ' disabled' : ''}><span class="xs subtle" id="${id}N">${value.length}/${MAX_NOTE}</span></div>`;
 const chips = (id, picked, disabled = false, skip = []) => `<div class="ai-chips" id="${id}" role="group">${FIXES().filter(([k]) => !skip.includes(k)).map(([k, name]) => `<button type="button" class="ai-chip" data-fix="${k}" aria-pressed="${picked.includes(k)}"${disabled || (!picked.includes(k) && picked.length >= MAX_FIXES) ? ' disabled' : ''}>${esc(name)}</button>`).join('')}</div>`;
 
 const loadBitmap = async (blob) => { try { return await createImageBitmap(blob); } catch { const u = URL.createObjectURL(blob); try { const im = new Image(); im.src = u; await im.decode(); return im; } finally { setTimeout(() => URL.revokeObjectURL(u), 1000); } } };
@@ -154,7 +156,8 @@ export function mount(host) {
           <div class="row"><b class="small">${L('Revisi', 'Revise')}</b><span class="grow"></span><span class="xs muted">${revOpen() ? L(`sisa ${revLeft()}× · ${r} kredit`, `${revLeft()} left · ${r} credits`) : L('tidak tersedia', 'not available')}</span></div>
           <span class="xs muted">${L(`Pilih yang perlu diperbaiki (maks. ${MAX_FIXES}):`, `Pick what to fix (up to ${MAX_FIXES}):`)}</span>
           ${chips('aiRevFix', A.revFixes, !revOpen())}
-          <button class="btn btn-secondary btn-block" id="aiRev"${revOpen() && !A.busy && A.revFixes.length ? '' : ' disabled'}>${icon('redo', 'i i-sm')}${L('Revisi hasil ini', 'Revise this result')} <span class="cost">· ${r} ${L('kredit', 'credits')}</span></button>
+          ${noteBox('aiRevNote', A.revNote, L('Atau tulis sendiri, contoh: huruf S dibuat lebih rapi', 'Or write your own, e.g. tidy up the letter S'), !revOpen())}
+          <button class="btn btn-secondary btn-block" id="aiRev"${revOpen() && !A.busy && (A.revFixes.length || A.revNote.trim()) ? '' : ' disabled'}>${icon('redo', 'i i-sm')}${L('Revisi hasil ini', 'Revise this result')} <span class="cost">· ${r} ${L('kredit', 'credits')}</span></button>
           <p class="hint" style="margin:0">${L(`Maksimal ${PRICE.max} revisi per gambar, dalam ${REVISE_MINUTES} menit setelah gambar dibuat.`, `Up to ${PRICE.max} revisions per image, within ${REVISE_MINUTES} minutes of creating it.`)}</p>
         </div>
       </div>` : '';
@@ -175,6 +178,9 @@ export function mount(host) {
         <select class="sel vec-sel" id="aiBgSel"><option value="transparent"${A.bg === 'transparent' ? ' selected' : ''}>${L('Buang latar (PNG transparan)', 'Remove background (transparent PNG)')}</option><option value="keep"${A.bg === 'keep' ? ' selected' : ''}>${L('Pertahankan latar asli', 'Keep the original background')}</option></select></div>
       <div class="vec-field"><label>${L('Penyesuaian', 'Adjustments')} <span class="muted xs">(${L(`opsional, maks. ${MAX_FIXES}`, `optional, up to ${MAX_FIXES}`)})</span></label>
         ${chips('aiFix', A.fixes, false, A.style === 'kaos' ? ['asli'] : [])}</div>
+      <div class="vec-field"><label for="aiNote">${L('Catatan', 'Note')} <span class="muted xs">(${L(`opsional, maks. ${MAX_NOTE} huruf`, `optional, up to ${MAX_NOTE} characters`)})</span></label>
+        ${noteBox('aiNote', A.note, L('Contoh: tulisan SUMMER METHOD dibuat lebih tebal', 'Example: make the SUMMER METHOD text bolder'))}
+        <p class="hint">${L('Tulis hal tentang desain ini saja. AI tidak bisa memakai gambar lain yang tidak diunggah.', 'Write about this design only. The AI cannot use images you have not uploaded.')}</p></div>
       ${isAdmin() ? `<div class="stack" style="gap:4px"><label class="row xs muted" style="gap:8px"><input type="checkbox" id="aiMock"${A.mock ? ' checked' : ''}> ${L('Uji coba tanpa AI (admin): alur kredit sungguhan, gambar asli dikembalikan.', 'Dry run without AI (admin): real credit flow, the original image comes back.')}</label>
         <label class="row xs muted" style="gap:8px"${A.mock ? '' : ' hidden'}><input type="checkbox" id="aiMockFail"${A.mockFail ? ' checked' : ''}> ${L('Simulasikan AI gagal (cek kredit kembali)', 'Simulate an AI failure (check the refund)')}</label></div>` : ''}
       <button class="btn ${v ? 'btn-secondary' : 'btn-primary btn-lg'} btn-block" id="aiGo"${!A.src || A.busy ? ' disabled' : ''}>${icon('spark', 'i i-sm')}${v ? L('Gambar ulang lagi', 'Redraw again') : L('Gambar ulang', 'Redraw')} <span class="cost">· ${c} ${L('kredit', 'credits')}</span></button>
@@ -192,6 +198,8 @@ export function mount(host) {
     $('aiBgSel').onchange = () => { A.bg = $('aiBgSel').value; };
     const pick = (list) => (e) => { const b = e.target.closest('[data-fix]'); if (!b || b.disabled) return; const k = b.dataset.fix; const i = list.indexOf(k); if (i >= 0) list.splice(i, 1); else if (list.length < MAX_FIXES) list.push(k); side(); };
     $('aiFix').onclick = pick(A.fixes);
+    const noteIn = (id, key, after) => { const el = $(id); if (!el) return; el.oninput = () => { A[key] = el.value.slice(0, MAX_NOTE); $(id + 'N').textContent = `${A[key].length}/${MAX_NOTE}`; after?.(); }; };
+    noteIn('aiNote', 'note');
     if ($('aiMock')) $('aiMock').onchange = () => { A.mock = $('aiMock').checked; side(); };
     if ($('aiMockFail')) $('aiMockFail').onchange = () => { A.mockFail = $('aiMockFail').checked; };
     $('aiGo').onclick = () => run(false);
@@ -203,6 +211,7 @@ export function mount(host) {
     };
     $('aiDl').onclick = download;
     $('aiRevFix').onclick = pick(A.revFixes);
+    noteIn('aiRevNote', 'revNote', () => { const b = $('aiRev'); if (b) b.disabled = !(revOpen() && !A.busy && (A.revFixes.length || A.revNote.trim())); });
     $('aiRev').onclick = () => run(true);
     $('aiSide').querySelectorAll('[data-next]').forEach((b) => (b.onclick = () => handOff(b.dataset.next)));
   }
@@ -268,7 +277,8 @@ export function mount(host) {
     const base = revision ? cur() : null;
     if (revision && (!base || !revOpen())) return;
     const fixes = [...(revision ? A.revFixes : A.fixes)];
-    if (revision && !fixes.length) { say(L('Pilih dulu apa yang perlu direvisi.', 'Pick what to revise first.'), 'warn'); return; }
+    const note = (revision ? A.revNote : A.note).replace(/\s+/g, ' ').trim().slice(0, MAX_NOTE);
+    if (revision && !fixes.length && !note) { say(L('Pilih atau tulis dulu apa yang perlu direvisi.', 'Pick or write what to revise first.'), 'warn'); return; }
     const size = revision ? base.size : A.size;
     const cost = revision ? PRICE.revise[size] : PRICE.cost[size];
     if (state.credits < cost) { topupDialog(L(`Kredit tidak cukup. ${revision ? 'Revisi' : 'Redraw AI'} ${size} memakai ${cost} kredit.`, `Not enough credits. ${revision ? 'A revision' : 'An AI redraw'} at ${size} uses ${cost} credits.`)); return; }
@@ -294,7 +304,7 @@ export function mount(host) {
       }
       const id = uuid();
       const r = await invoke('ai-redraw', {
-        action: 'generate', id, parent: revision ? A.rootId : undefined, size, style: A.style, chroma, fixes,
+        action: 'generate', id, parent: revision ? A.rootId : undefined, size, style: A.style, chroma, fixes, note: note || undefined,
         image: { mime: input.mime, data: input.data }, w: input.w, h: input.h,
         mock: A.mock && isAdmin() ? true : undefined, mock_fail: A.mock && A.mockFail && isAdmin() ? true : undefined,
       });
@@ -305,12 +315,12 @@ export function mount(host) {
       const t = canvasOf(96, Math.max(1, Math.round(96 * v.canvas.height / v.canvas.width))); t.getContext('2d').drawImage(v.canvas, 0, 0, t.width, t.height);
       v.thumb = t.toDataURL('image/png');
       const roots = A.versions.filter((x) => !x.parent).length;
-      if (!revision) { A.revFixes.length = 0; v.at = Date.now(); A.rootId = id; A.rootAt = v.at; A.chroma = chroma; v.label = roots ? L(`Hasil ${roots + 1}`, `Result ${roots + 1}`) : L('Hasil', 'Result'); }
+      if (!revision) { A.revFixes.length = 0; A.revNote = ''; v.at = Date.now(); A.rootId = id; A.rootAt = v.at; A.chroma = chroma; v.label = roots ? L(`Hasil ${roots + 1}`, `Result ${roots + 1}`) : L('Hasil', 'Result'); }
       else { const n = A.versions.filter((x) => x.parent === A.rootId).length + 1; v.label = L(`Revisi ${n}`, `Revision ${n}`); }
       const prev = cur(); if (prev) prev.canvas = null;   // keep memory low: only the shown result stays decoded
       A.versions.push(v);
       A.cur = A.versions.length - 1; A.view = 'result'; A.downloaded = false;
-      if (revision) A.revFixes.length = 0;
+      if (revision) { A.revFixes.length = 0; A.revNote = ''; }
       toast(L(`Selesai. ${r.cost} kredit terpakai, sisa ${r.balance}.`, `Done. ${r.cost} credits used, ${r.balance} left.`));
       if (size === '4K' && r.w && Math.max(r.w, r.h) < 3000) say(L(`AI hanya menghasilkan ${r.w}×${r.h} px, jadi dihitung harga 2K dan selisih kreditnya sudah dikembalikan.`, `The AI only returned ${r.w}×${r.h} px, so it was charged at the 2K price and the difference was refunded.`), 'warn');
       db.from('halftone_image_history').insert({
