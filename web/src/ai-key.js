@@ -63,6 +63,39 @@ export function removeKey(px, w, h, mode, opts = {}) {
   if (inner) { const tIn = Math.round(t0 * 0.7); for (let p = 0; p < n; p++) if (!bg[p] && dist(px, p * 4, key) <= tIn) bg[p] = 1; }
   for (let p = 0; p < n; p++) if (bg[p]) { const k = p * 4; if (px[k + 3]) cleared++; px[k + 3] = 0; }
 
+  // Soft key: the AI often paints a green glow or gradient (around hair, where green meets a shirt) that is not
+  // close enough to the flat key to be cut above. Measure how "key-coloured" each remaining pixel is, make it that
+  // much transparent, and take the key colour back out of what is left. The key is chosen so the design itself has
+  // almost none of it (green designs use magenta), so this only touches leftovers.
+  const keyAmt = mode === 'green' ? key[1] - Math.max(key[0], key[2]) : Math.min(key[0], key[2]) - key[1];
+  const lo = Math.round(70 - 40 * s);              // below this much key colour a pixel is left alone
+  if (keyAmt > lo + 20) {
+    // Only key-coloured pixels connected to the removed background (glows, gradients): a green leaf drawn
+    // inside the design, surrounded by other colours, is left alone.
+    const amtOf = (p) => { const k = p * 4; return mode === 'green' ? px[k + 1] - Math.max(px[k], px[k + 2]) : Math.min(px[k], px[k + 2]) - px[k + 1]; };
+    const near = new Uint8Array(n); let qh = 0, qt = 0;
+    const reach = (p) => { if (near[p] || !px[p * 4 + 3] || amtOf(p) <= lo) return; near[p] = 1; queue[qt++] = p; };
+    for (let y = 0, p = 0; y < h; y++) for (let x = 0; x < w; x++, p++) {
+      if (px[p * 4 + 3]) continue;
+      if (x) reach(p - 1); if (x < w - 1) reach(p + 1); if (y) reach(p - w); if (y < h - 1) reach(p + w);
+    }
+    while (qh < qt) { const p = queue[qh++], x = p % w; if (x) reach(p - 1); if (x < w - 1) reach(p + 1); if (p >= w) reach(p - w); if (p < n - w) reach(p + w); }
+    for (let p = 0; p < n; p++) {
+      const k = p * 4; if (!px[k + 3] || !near[p]) continue;
+      const r = px[k], g = px[k + 1], b = px[k + 2];
+      const amt = mode === 'green' ? g - Math.max(r, b) : Math.min(r, b) - g;
+      if (amt <= lo) continue;
+      const a = Math.min(1, (amt - lo) / (keyAmt - lo));
+      if (a >= 0.97) { px[k + 3] = 0; cleared++; continue; }
+      // un-mix: colour = (seen − a·key) / (1 − a)
+      const un = (v, kv) => Math.max(0, Math.min(255, Math.round((v - a * kv) / (1 - a))));
+      px[k] = un(r, key[0]); px[k + 1] = un(g, key[1]); px[k + 2] = un(b, key[2]);
+      px[k + 3] = Math.round(px[k + 3] * (1 - a));
+      if (mode === 'green') { const m = Math.max(px[k], px[k + 2]); if (px[k + 1] > m) px[k + 1] = m; }
+      else { const m = Math.min(px[k], px[k + 2]); if (m > px[k + 1]) { px[k] -= m - px[k + 1]; px[k + 2] -= m - px[k + 1]; } }
+    }
+  }
+
   // Edge band: pixels touching the background get alpha from their distance to the key, and lose colour spill.
   // band 1 = touches the background, band 2 = touches band 1 (4-neighbourhood, two cheap passes).
   const band = new Uint8Array(n);
@@ -84,6 +117,7 @@ export function removeKey(px, w, h, mode, opts = {}) {
     if (mode === 'green') { const m = Math.max(px[k], px[k + 2]); if (px[k + 1] > m) px[k + 1] = m; }
     else { const g = px[k + 1], m = Math.min(px[k], px[k + 2]); if (m > g) { px[k] -= m - g; px[k + 2] -= m - g; } }
   }
+
   return { cleared, key };
 }
 

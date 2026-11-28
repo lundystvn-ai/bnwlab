@@ -167,7 +167,7 @@ export function mount(host) {
         <button class="ai-style" role="radio" data-style="${id}" aria-checked="${A.style === id}">
           <span class="ai-style-top"><b>${esc(name)}</b><span class="ai-lvl" data-l="${lvl}">${lvl ? '<i></i><i></i><i></i>' : ''}${esc(LEVEL()[lvl])}</span></span>
           <span class="xs muted">${esc(L('Untuk: ', 'For: ') + forWhat)}</span></button>`).join('')}</div>
-      <p class="ai-style-say small">${esc(STYLES().find((x) => x[0] === A.style)?.[4] || '')}</p>
+      <p class="ai-style-say small">${esc(STYLES().find((x) => x[0] === A.style)?.[4] || '')}${A.style !== 'kaos' ? `<span class="ai-style-tip xs">${esc(L('Fotonya kaos yang dipakai orang, digantung, atau mockup? Pilih "Ambil desain dari foto kaos" supaya yang diambil hanya desainnya.', 'Is it a photo of a worn or hanging shirt, or a mockup? Choose "Take the design off a shirt photo" so only the design is kept.'))}</span>` : ''}</p>
       <div class="vec-field"><label>${L('Resolusi hasil', 'Output size')}</label>
         <div class="seg" role="radiogroup" id="aiSize"><button role="radio" data-size="2K" aria-checked="${A.size === '2K'}">2K · ${PRICE.cost['2K']} ${L('kredit', 'credits')}</button><button role="radio" data-size="4K" aria-checked="${A.size === '4K'}">4K · ${PRICE.cost['4K']} ${L('kredit', 'credits')}</button></div>
         <p class="hint">${A.size === '2K' ? L('±2048 px: cukup untuk logo dan desain dada (±17 cm di 300 dpi).', '±2048 px: enough for logos and chest prints (±17 cm at 300 dpi).') : L('±4096 px: untuk desain punggung atau A3 (±35 cm di 300 dpi). Kalau AI hanya menghasilkan ukuran lebih kecil, selisih kredit dikembalikan.', '±4096 px: for back prints or A3 (±35 cm at 300 dpi). If the AI returns a smaller image, the difference is refunded.')}</p></div>
@@ -284,7 +284,7 @@ export function mount(host) {
         else {
           const probe = canvasOf(Math.min(256, A.w), Math.min(256, A.h)), px = probe.getContext('2d', { willReadFrequently: true });
           px.drawImage(A.src, 0, 0, probe.width, probe.height);
-          chroma = greenShare(px.getImageData(0, 0, probe.width, probe.height).data) > 0.06 ? 'magenta' : 'green';
+          chroma = greenShare(px.getImageData(0, 0, probe.width, probe.height).data) > 0.015 ? 'magenta' : 'green';
         }
         input = await inputFor(A.src, A.w, A.h, chroma === 'magenta' ? '#ff00ff' : chroma === 'green' ? '#00ff00' : '#ffffff');
       }
