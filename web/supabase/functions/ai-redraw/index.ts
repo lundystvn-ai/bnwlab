@@ -14,8 +14,9 @@ const json = (body: unknown, status = 200) =>
 class HttpError extends Error { constructor(public status: number, message: string) { super(message); } }
 
 type Size = '2K' | '4K';
-const COST: Record<Size, number> = { '2K': 20, '4K': 30 };
-const REVISE: Record<Size, number> = { '2K': 6, '4K': 8 };
+type Prices = { cost: Record<Size, number>; revise: Record<Size, number> };
+// Default prices in credits; the admin can change them (stored in app_settings 'ai_prices', public so pages can show them).
+const DEFAULT_PRICES: Prices = { cost: { '2K': 20, '4K': 30 }, revise: { '2K': 6, '4K': 8 } };
 const MAX_REVISIONS = 3;
 const HOURLY_LIMIT = 40;            // per account
 const DEFAULT_DAILY_CAP = 300;      // whole site, protects the prepaid AI balance
@@ -24,6 +25,18 @@ const MAX_INPUT_CHARS = 9_000_000;  // ~6.7 MB image as base64
 const DEFAULT_MODEL = { google: 'gemini-3.1-flash-image', openrouter: 'google/gemini-3.1-flash-image-preview' };
 const RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
 const STYLES = ['tajam', 'rapikan', 'flat'] as const;
+// Customers pick adjustments from a fixed list (no free text), so every prompt stays predictable.
+const FIXES: Record<string, string> = {
+  teks: 'Make every piece of text sharp and clearly readable, with exactly the same words and spelling.',
+  tebal: 'Make the outlines and lines noticeably thicker and bolder.',
+  tipis: 'Make the outlines and lines thinner and finer.',
+  cerah: 'Make the colours brighter and more saturated, while keeping the same hues.',
+  asli: 'Stay closer to the original: keep the shapes, proportions and details exactly as in the source image.',
+  detail: 'Bring back more fine detail inside the design.',
+  simpel: 'Simplify the design: fewer tiny details, cleaner and smoother shapes.',
+  bersih: 'Remove stray specks, dust, noise and leftover fragments around the design.',
+};
+const MAX_FIXES = 3;
 type Style = typeof STYLES[number];
 type Provider = 'google' | 'openrouter';
 type Admin = ReturnType<typeof createClient>;
@@ -49,6 +62,15 @@ async function enabled(admin: Admin) {
   const { data } = await admin.from('app_settings').select('value').eq('key', 'ai_enabled').maybeSingle();
   return data?.value === '1';
 }
+async function prices(admin: Admin): Promise<Prices> {
+  const { data } = await admin.from('app_settings').select('value').eq('key', 'ai_prices').maybeSingle();
+  try {
+    const p = JSON.parse(data?.value ?? '');
+    const ok = (n: unknown) => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= 100;
+    if (ok(p.cost['2K']) && ok(p.cost['4K']) && ok(p.revise['2K']) && ok(p.revise['4K'])) return p;
+  } catch { /* defaults */ }
+  return DEFAULT_PRICES;
+}
 async function noteError(admin: Admin, msg: string) {
   await admin.from('app_secrets').upsert({ key: 'ai_last_error', value: new Date().toISOString() + ' ' + msg.slice(0, 400), updated_at: new Date().toISOString() });
 }
@@ -69,7 +91,7 @@ function prompt(style: Style, chroma: 'green' | 'magenta' | 'none', note: string
     return [
       'Edit this artwork. Change only what the request below asks for and keep everything else exactly the same: composition, subject, text, colours and line style.',
       chroma === 'none' ? 'Keep the background as it is.' : `Keep the background flat pure ${chroma} (${chroma === 'green' ? '#00FF00' : '#FF00FF'}).`,
-      `Request: ${note || 'make the lines cleaner and sharper'}`,
+      `Requested changes: ${note || 'make the lines cleaner and sharper'}`,
       'Return only the edited image.',
     ].join('\n');
   }
@@ -82,7 +104,7 @@ function prompt(style: Style, chroma: 'green' | 'magenta' | 'none', note: string
     base,
     'Any text must keep exactly the same words and spelling, rendered sharply in the same lettering style. Do not add, remove or move any element. Do not add a watermark, signature, mockup or t-shirt.',
     bg,
-    note ? `Extra instruction from the user: ${note}` : '',
+    note ? `Also: ${note}` : '',
     'Return only the image.',
   ].filter(Boolean).join('\n');
 }
@@ -165,7 +187,7 @@ Deno.serve(async (req) => {
     const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
 
-    if (body.action === 'info') return json({ enabled: await enabled(admin), cost: COST, revise: REVISE, max_revisions: MAX_REVISIONS });
+    if (body.action === 'info') { const pr = await prices(admin); return json({ enabled: await enabled(admin), cost: pr.cost, revise: pr.revise, max_revisions: MAX_REVISIONS }); }
 
     const userClient = createClient(url, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } });
     const { data: u } = await userClient.auth.getUser();
@@ -181,7 +203,9 @@ Deno.serve(async (req) => {
         const size: Size = body.size === '4K' ? '4K' : '2K';
         const style: Style = STYLES.includes(body.style as Style) ? body.style as Style : 'tajam';
         const chroma = body.chroma === 'magenta' ? 'magenta' : body.chroma === 'none' ? 'none' : 'green';
-        const note = String(body.note ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+        const fixes = [...new Set(Array.isArray(body.fixes) ? body.fixes.map(String) : [])].filter((f) => Object.hasOwn(FIXES, f)).slice(0, MAX_FIXES);
+        if (parent && !fixes.length) throw new HttpError(400, 'Pilih dulu apa yang perlu direvisi.');
+        const note = fixes.map((f) => FIXES[f]).join(' ');
         const img = body.image as { mime?: string; data?: string } | undefined;
         const mime = String(img?.mime ?? '');
         const data = String(img?.data ?? '');
@@ -199,7 +223,8 @@ Deno.serve(async (req) => {
           if ((count ?? 0) >= c.dailyCap) throw new HttpError(503, 'Kuota AI hari ini sudah habis. Coba lagi besok.');
         }
 
-        const cost = parent ? REVISE[size] : COST[size];
+        const pr = await prices(admin);
+        const cost = parent ? pr.revise[size] : pr.cost[size];
         const ref = parent ? `air:${parent}:${id}` : `ai:${id}`;
         const { count: dup } = await admin.from('credit_ledger').select('id', { count: 'exact', head: true }).eq('ref', ref);
         if (dup) throw new HttpError(409, 'Permintaan ini sudah diproses.');
@@ -225,7 +250,7 @@ Deno.serve(async (req) => {
         try {
           const text = prompt(style, chroma, note, !!parent);
           const ratio = ratioFor(Number(body.w), Number(body.h));
-          out = mock ? (note === 'gagal' ? { fail: 'provider', admin: 'uji coba gagal (mock)' } : { data, mime })
+          out = mock ? (body.mock_fail === true ? { fail: 'provider', admin: 'uji coba gagal (mock)' } : { data, mime })
             : c.provider === 'google' ? await callGoogle(c, text, { mime, data }, ratio, size, ctl.signal) : await callOpenRouter(c, text, { mime, data }, ratio, size, ctl.signal);
         } catch (e) {
           clearTimeout(timer);
@@ -243,8 +268,8 @@ Deno.serve(async (req) => {
         const dim = imageSize(out.data);
         let balance = Number(bal), charged = cost;
         if (size === '4K' && dim.w && Math.max(dim.w, dim.h) < 3000) {
-          const diff = (parent ? REVISE['4K'] - REVISE['2K'] : COST['4K'] - COST['2K']);
-          const { data: b2 } = await admin.rpc('grant_credits', { p_user: user.id, p_amount: diff, p_reason: 'ai_refund', p_ref: 'aip:' + ref });
+          const diff = Math.max(0, parent ? pr.revise['4K'] - pr.revise['2K'] : pr.cost['4K'] - pr.cost['2K']);
+          const { data: b2 } = diff === 0 ? { data: null } : await admin.rpc('grant_credits', { p_user: user.id, p_amount: diff, p_reason: 'ai_refund', p_ref: 'aip:' + ref });
           if (b2 != null) { balance = Number(b2); charged = cost - diff; }
         }
         return json({ id, parent, image: out.data, mime: out.mime, w: dim.w, h: dim.h, cost: charged, balance, model: c.model });
@@ -267,7 +292,7 @@ Deno.serve(async (req) => {
           provider: c.provider, enabled: await enabled(admin),
           google: { set: !!c.googleKey, masked: c.googleKey ? mask(c.googleKey) : '', model: c.googleModel },
           openrouter: { set: !!c.orKey, masked: c.orKey ? mask(c.orKey) : '', model: c.orModel },
-          daily_cap: c.dailyCap, last_error: le?.value || '', stat, cost: COST, revise: REVISE,
+          daily_cap: c.dailyCap, last_error: le?.value || '', stat, ...(await prices(admin)),
         });
       }
       case 'save_config': {
@@ -286,6 +311,17 @@ Deno.serve(async (req) => {
           const cap = Number(body.daily_cap);
           if (!Number.isInteger(cap) || cap < 0 || cap > 100000) throw new HttpError(400, 'Batas harian harus angka 0–100000.');
           rows.push({ key: 'ai_daily_cap', value: String(cap), updated_at: now });
+        }
+        if (body.prices) {
+          const p = body.prices as Record<string, unknown>;
+          const n = (k: string) => Number(p[k]);
+          const pr: Prices = { cost: { '2K': n('2K'), '4K': n('4K') }, revise: { '2K': n('r2K'), '4K': n('r4K') } };
+          const all = [pr.cost['2K'], pr.cost['4K'], pr.revise['2K'], pr.revise['4K']];
+          if (!all.every((x) => Number.isInteger(x) && x >= 1 && x <= 100)) throw new HttpError(400, 'Harga harus angka bulat 1–100 kredit.');
+          if (pr.cost['4K'] < pr.cost['2K'] || pr.revise['4K'] < pr.revise['2K']) throw new HttpError(400, 'Harga 4K tidak boleh lebih murah dari 2K.');
+          if (pr.revise['2K'] > pr.cost['2K'] || pr.revise['4K'] > pr.cost['4K']) throw new HttpError(400, 'Harga revisi tidak boleh lebih mahal dari gambar baru.');
+          const { error: pe } = await admin.from('app_settings').upsert({ key: 'ai_prices', value: JSON.stringify(pr), updated_at: now });
+          if (pe) throw new HttpError(500, 'Gagal menyimpan harga.');
         }
         const { error } = await admin.from('app_secrets').upsert(rows);
         if (error) throw new HttpError(500, 'Gagal menyimpan pengaturan.');

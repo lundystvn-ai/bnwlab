@@ -257,6 +257,7 @@ export async function loadSettings() {
     if (r.key === 'promo_welcome_pct') cfg.promoPct = Number(r.value) || 0;
     if (r.key === 'promo_welcome_hours') cfg.promoHours = Number(r.value) || 24;
     if (r.key === 'ai_enabled') cfg.aiEnabled = r.value === '1';
+    if (r.key === 'ai_prices') { try { const p = JSON.parse(r.value); if (p?.cost?.['2K'] && p?.revise?.['2K']) cfg.aiPrices = p; } catch {} }
   }
 }
 

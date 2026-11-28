@@ -401,6 +401,14 @@ export function mount(host) {
               <div class="field"><label for="aiOKey">API key OpenRouter ${st.openrouter.set ? '<span class="muted">(kosongkan kalau tidak diganti)</span>' : ''}</label><input id="aiOKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-…"></div>
               <div class="field"><label for="aiOModel">Model</label><input id="aiOModel" class="mono" spellcheck="false" value="${esc(st.openrouter.model)}"><span class="xs muted">Nama model gambar Gemini di OpenRouter, misalnya google/gemini-3.1-flash-image-preview.</span></div>
             </div>
+            <div class="field"><label>Harga (kredit)</label>
+              <div class="ai-price-grid">
+                <label><span class="xs muted">Gambar 2K</span><input id="aiP2" type="number" min="1" max="100" step="1" value="${st.cost['2K']}"></label>
+                <label><span class="xs muted">Gambar 4K</span><input id="aiP4" type="number" min="1" max="100" step="1" value="${st.cost['4K']}"></label>
+                <label><span class="xs muted">Revisi 2K</span><input id="aiR2" type="number" min="1" max="100" step="1" value="${st.revise['2K']}"></label>
+                <label><span class="xs muted">Revisi 4K</span><input id="aiR4" type="number" min="1" max="100" step="1" value="${st.revise['4K']}"></label>
+              </div>
+              <span class="xs muted" id="aiMargin"></span></div>
             <div class="field"><label for="aiCap">Batas gambar per hari (seluruh situs)</label><input id="aiCap" type="number" min="0" max="100000" step="1" value="${esc(st.daily_cap)}"><span class="xs muted">Melindungi saldo AI dari pemakaian tak terduga. 0 = tanpa batas.</span></div>
             <div class="row" style="flex-wrap:wrap"><button class="btn btn-primary" type="submit">Simpan</button><button class="btn btn-secondary" type="button" id="aiTest">Tes koneksi</button><a class="btn btn-secondary" href="#ai" data-route="ai">Buka halaman AI</a></div>
           </form>
@@ -424,13 +432,25 @@ export function mount(host) {
           <p class="xs muted" style="margin:0">API key hanya disimpan di server dan tidak pernah dikirim ke browser pelanggan. Jangan kirim key lewat chat atau WhatsApp.</p>
         </section>
       </div>`;
+    // Worst-case margin: the cheapest credit (largest pack, plus the welcome bonus) against the AI cost.
+    const margin = () => {
+      const packs = (state.packages || []).filter((p) => p.kredit > 0);
+      if (!packs.length) { $('aiMargin').textContent = ''; return; }
+      const bonus = 1 + (Number(cfg.promoPct) || 0) / 100;
+      const low = Math.min(...packs.map((p) => p.harga / (p.kredit * bonus)));
+      const cost = { '2K': 2100, '4K': 3100 };
+      const f = (credits, k) => { const r = Math.round(credits * low); const u = r - cost[k]; return `${num(credits)} kr = Rp${num(r)} → ${u >= 0 ? 'untung' : 'rugi'} Rp${num(Math.abs(u))}`; };
+      $('aiMargin').innerHTML = `Terburuk (kredit termurah Rp${num(Math.round(low))}${bonus > 1 ? ', sudah termasuk bonus ' + cfg.promoPct + '%' : ''}; modal ±Rp2.100 per 2K, ±Rp3.100 per 4K): 2K ${f(Number($('aiP2').value) || 0, '2K')} · 4K ${f(Number($('aiP4').value) || 0, '4K')} · revisi 2K ${f(Number($('aiR2').value) || 0, '2K')} · revisi 4K ${f(Number($('aiR4').value) || 0, '4K')}`;
+    };
+    ['aiP2', 'aiP4', 'aiR2', 'aiR4'].forEach((id) => ($(id).oninput = margin)); margin();
     let prov = st.provider;
     $('aiProv').onclick = (e) => { const b = e.target.closest('[data-p]'); if (!b) return; prov = b.dataset.p; $('aiProv').querySelectorAll('[data-p]').forEach((x) => x.setAttribute('aria-checked', String(x === b))); $('aiG').hidden = prov !== 'google'; $('aiO').hidden = prov !== 'openrouter'; };
     $('aiForm').onsubmit = async (e) => {
       e.preventDefault();
       const btn = e.submitter; if (btn) btn.disabled = true;
       try {
-        const r = await invoke('ai-redraw', { action: 'save_config', provider: prov, google_key: $('aiGKey').value.trim(), google_model: $('aiGModel').value.trim(), openrouter_key: $('aiOKey').value.trim(), openrouter_model: $('aiOModel').value.trim(), daily_cap: $('aiCap').value.trim() });
+        const r = await invoke('ai-redraw', { action: 'save_config', provider: prov, google_key: $('aiGKey').value.trim(), google_model: $('aiGModel').value.trim(), openrouter_key: $('aiOKey').value.trim(), openrouter_model: $('aiOModel').value.trim(), daily_cap: $('aiCap').value.trim(), prices: { '2K': Number($('aiP2').value), '4K': Number($('aiP4').value), r2K: Number($('aiR2').value), r4K: Number($('aiR4').value) } });
+        cfg.aiPrices = { cost: { '2K': Number($('aiP2').value), '4K': Number($('aiP4').value) }, revise: { '2K': Number($('aiR2').value), '4K': Number($('aiR4').value) } };
         toast(r.message); await aiTab();
       } catch (err) { $('aiMsgA').innerHTML = notice(esc(err.message), 'error'); if (btn) btn.disabled = false; }
     };

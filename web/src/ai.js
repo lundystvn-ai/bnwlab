@@ -10,7 +10,7 @@ import { state, authDialog, topupDialog, setCredits, refreshCredits, regionId, i
 import { giveHandoff } from './handoff.js';
 import { removeKey, greenShare, opaqueBox } from './ai-key.js';
 
-const PRICE = { cost: { '2K': 20, '4K': 30 }, revise: { '2K': 6, '4K': 8 }, max: 3 };
+const PRICE = { cost: { ...cfg.aiPrices.cost }, revise: { ...cfg.aiPrices.revise }, max: 3 };
 const REVISE_MINUTES = 60;
 const INPUT_MAX = 2048;        // longest side sent to the AI
 const MAX_FILE = 25 * 1048576;
@@ -18,9 +18,9 @@ const MAX_FILE = 25 * 1048576;
 // Kept outside the page so the work survives signing in or switching pages.
 const A = {
   file: null, name: '', src: null, w: 0, h: 0,
-  style: 'tajam', size: '2K', bg: 'transparent', note: '', strength: 50,
-  versions: [], cur: -1, rootId: null, rootAt: 0, chroma: 'green', revNote: '',
-  busy: false, view: 'result', preview: 'check', mock: false, downloaded: true,
+  style: 'tajam', size: '2K', bg: 'transparent', fixes: [], strength: 50,
+  versions: [], cur: -1, rootId: null, rootAt: 0, chroma: 'green', revFixes: [],
+  busy: false, view: 'result', preview: 'check', mock: false, mockFail: false, downloaded: true,
 };
 let pageApi = null;
 
@@ -29,6 +29,15 @@ const STYLES = () => [
   ['rapikan', L('Rapikan, tetap mirip asli', 'Clean up, stay faithful'), L('Perubahan sekecil mungkin: buang blur dan kotak-kotak JPG, detail asli dipertahankan.', 'Minimal changes: removes blur and JPEG blocks, keeps the original detail.')],
   ['flat', L('Vektor flat', 'Flat vector'), L('Warna rata tanpa gradasi, garis rapi. Paling enak dilanjutkan ke Vektor (SVG).', 'Solid colours, no gradients, tidy outlines. Best before Vector (SVG).')],
 ];
+
+// Adjustments the customer can tick (the server holds the matching AI instructions).
+const FIXES = () => [
+  ['teks', L('Perjelas tulisan', 'Sharper text')], ['tebal', L('Garis lebih tebal', 'Thicker lines')], ['tipis', L('Garis lebih tipis', 'Thinner lines')],
+  ['cerah', L('Warna lebih cerah', 'Brighter colours')], ['asli', L('Lebih mirip asli', 'Closer to original')], ['detail', L('Tambah detail', 'More detail')],
+  ['simpel', L('Lebih sederhana', 'Simpler')], ['bersih', L('Buang bintik/kotoran', 'Remove specks')],
+];
+const MAX_FIXES = 3;
+const chips = (id, picked, disabled = false) => `<div class="ai-chips" id="${id}" role="group">${FIXES().map(([k, name]) => `<button type="button" class="ai-chip" data-fix="${k}" aria-pressed="${picked.includes(k)}"${disabled || (!picked.includes(k) && picked.length >= MAX_FIXES) ? ' disabled' : ''}>${esc(name)}</button>`).join('')}</div>`;
 
 const loadBitmap = async (blob) => { try { return await createImageBitmap(blob); } catch { const u = URL.createObjectURL(blob); try { const im = new Image(); im.src = u; await im.decode(); return im; } finally { setTimeout(() => URL.revokeObjectURL(u), 1000); } } };
 const toB64 = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(new Error('read')); r.readAsDataURL(blob); });
@@ -66,6 +75,7 @@ export function onSignIn() { pageApi?.render(); return true; }
 
 export function mount(host) {
   let alive = true, tick = 0, keyTimer = 0;
+  PRICE.cost = { ...cfg.aiPrices.cost }; PRICE.revise = { ...cfg.aiPrices.revise };
   const open = cfg.aiEnabled || isAdmin();
   if (!open) {
     host.innerHTML = `<div class="page"><div class="page-in" style="max-width:760px">
@@ -134,8 +144,9 @@ export function mount(host) {
           <button class="btn btn-secondary btn-sm" data-next="upscale">Upscale</button><button class="btn btn-secondary btn-sm" data-next="vektor">${L('Vektor', 'Vector')}</button><button class="btn btn-secondary btn-sm" data-next="gangsheet">Gangsheet</button><button class="btn btn-secondary btn-sm" data-next="editor">Halftone</button></div>
         <div class="ai-rev stack">
           <div class="row"><b class="small">${L('Revisi', 'Revise')}</b><span class="grow"></span><span class="xs muted">${revOpen() ? L(`sisa ${revLeft()}× · ${r} kredit`, `${revLeft()} left · ${r} credits`) : L('tidak tersedia', 'not available')}</span></div>
-          <textarea id="aiRevNote" rows="2" maxlength="300" placeholder="${esc(L('Apa yang perlu diubah? Contoh: huruf S di kiri masih miring, garis lebih tebal', 'What should change? Example: the S on the left is still slanted, thicker lines'))}"${revOpen() ? '' : ' disabled'}>${esc(A.revNote)}</textarea>
-          <button class="btn btn-secondary btn-block" id="aiRev"${revOpen() && !A.busy ? '' : ' disabled'}>${icon('redo', 'i i-sm')}${L('Revisi hasil ini', 'Revise this result')} <span class="cost">· ${r} ${L('kredit', 'credits')}</span></button>
+          <span class="xs muted">${L(`Pilih yang perlu diperbaiki (maks. ${MAX_FIXES}):`, `Pick what to fix (up to ${MAX_FIXES}):`)}</span>
+          ${chips('aiRevFix', A.revFixes, !revOpen())}
+          <button class="btn btn-secondary btn-block" id="aiRev"${revOpen() && !A.busy && A.revFixes.length ? '' : ' disabled'}>${icon('redo', 'i i-sm')}${L('Revisi hasil ini', 'Revise this result')} <span class="cost">· ${r} ${L('kredit', 'credits')}</span></button>
           <p class="hint" style="margin:0">${L(`Maksimal ${PRICE.max} revisi per gambar, dalam ${REVISE_MINUTES} menit setelah gambar dibuat.`, `Up to ${PRICE.max} revisions per image, within ${REVISE_MINUTES} minutes of creating it.`)}</p>
         </div>
       </div>` : '';
@@ -151,9 +162,10 @@ export function mount(host) {
         <p class="hint">${A.size === '2K' ? L('±2048 px: cukup untuk logo dan desain dada (±17 cm di 300 dpi).', '±2048 px: enough for logos and chest prints (±17 cm at 300 dpi).') : L('±4096 px: untuk desain punggung atau A3 (±35 cm di 300 dpi). Kalau AI hanya menghasilkan ukuran lebih kecil, selisih kredit dikembalikan.', '±4096 px: for back prints or A3 (±35 cm at 300 dpi). If the AI returns a smaller image, the difference is refunded.')}</p></div>
       <div class="vec-field"><label for="aiBgSel">${L('Latar hasil', 'Result background')}</label>
         <select class="sel vec-sel" id="aiBgSel"><option value="transparent"${A.bg === 'transparent' ? ' selected' : ''}>${L('Buang latar (PNG transparan)', 'Remove background (transparent PNG)')}</option><option value="keep"${A.bg === 'keep' ? ' selected' : ''}>${L('Pertahankan latar asli', 'Keep the original background')}</option></select></div>
-      <div class="vec-field"><label for="aiNote">${L('Catatan untuk AI', 'Note for the AI')} <span class="muted xs">(${L('opsional', 'optional')})</span></label>
-        <textarea id="aiNote" rows="2" maxlength="300" placeholder="${esc(L('Contoh: tulisan "JAYA MOTOR" harus jelas, warna merah tetap merah', 'Example: the text "JAYA MOTOR" must be readable, keep red as red'))}">${esc(A.note)}</textarea></div>
-      ${isAdmin() ? `<label class="row xs muted" style="gap:8px"><input type="checkbox" id="aiMock"${A.mock ? ' checked' : ''}> ${L('Uji coba tanpa AI (admin): alur kredit sungguhan, gambar asli dikembalikan. Tulis catatan "gagal" untuk menguji pengembalian kredit.', 'Dry run without AI (admin): real credit flow, the original image comes back. Write the note "gagal" to test refunds.')}</label>` : ''}
+      <div class="vec-field"><label>${L('Penyesuaian', 'Adjustments')} <span class="muted xs">(${L(`opsional, maks. ${MAX_FIXES}`, `optional, up to ${MAX_FIXES}`)})</span></label>
+        ${chips('aiFix', A.fixes)}</div>
+      ${isAdmin() ? `<div class="stack" style="gap:4px"><label class="row xs muted" style="gap:8px"><input type="checkbox" id="aiMock"${A.mock ? ' checked' : ''}> ${L('Uji coba tanpa AI (admin): alur kredit sungguhan, gambar asli dikembalikan.', 'Dry run without AI (admin): real credit flow, the original image comes back.')}</label>
+        <label class="row xs muted" style="gap:8px"${A.mock ? '' : ' hidden'}><input type="checkbox" id="aiMockFail"${A.mockFail ? ' checked' : ''}> ${L('Simulasikan AI gagal (cek kredit kembali)', 'Simulate an AI failure (check the refund)')}</label></div>` : ''}
       <button class="btn ${v ? 'btn-secondary' : 'btn-primary btn-lg'} btn-block" id="aiGo"${!A.src || A.busy ? ' disabled' : ''}>${icon('spark', 'i i-sm')}${v ? L('Gambar ulang lagi', 'Redraw again') : L('Gambar ulang', 'Redraw')} <span class="cost">· ${c} ${L('kredit', 'credits')}</span></button>
       <p class="hint" style="margin:0">${L('Hasil AI bisa berbeda sedikit dari aslinya, jadi cek dulu sebelum dicetak. Pakai hanya desain yang Anda berhak cetak. Hasil hanya disimpan selama halaman ini terbuka.', 'AI results can differ slightly from the original, so check before printing. Only use designs you have the right to print. Results are kept only while this page is open.')}</p>`;
     bindSide();
@@ -163,8 +175,10 @@ export function mount(host) {
     $('aiSide').querySelectorAll('[data-style]').forEach((b) => (b.onclick = () => { A.style = b.dataset.style; side(); }));
     $('aiSize').onclick = (e) => { const b = e.target.closest('[data-size]'); if (!b) return; A.size = b.dataset.size; side(); };
     $('aiBgSel').onchange = () => { A.bg = $('aiBgSel').value; };
-    $('aiNote').oninput = () => { A.note = $('aiNote').value; };
-    if ($('aiMock')) $('aiMock').onchange = () => { A.mock = $('aiMock').checked; };
+    const pick = (list) => (e) => { const b = e.target.closest('[data-fix]'); if (!b || b.disabled) return; const k = b.dataset.fix; const i = list.indexOf(k); if (i >= 0) list.splice(i, 1); else if (list.length < MAX_FIXES) list.push(k); side(); };
+    $('aiFix').onclick = pick(A.fixes);
+    if ($('aiMock')) $('aiMock').onchange = () => { A.mock = $('aiMock').checked; side(); };
+    if ($('aiMockFail')) $('aiMockFail').onchange = () => { A.mockFail = $('aiMockFail').checked; };
     $('aiGo').onclick = () => run(false);
     if (!cur()) return;
     $('aiStrength').oninput = () => {
@@ -173,7 +187,7 @@ export function mount(host) {
       clearTimeout(keyTimer); keyTimer = setTimeout(async () => { const v = cur(); if (!v) return; v.canvas = await keyed(v, A.strength); v.strength = A.strength; draw(); }, 180);
     };
     $('aiDl').onclick = download;
-    $('aiRevNote').oninput = () => { A.revNote = $('aiRevNote').value; };
+    $('aiRevFix').onclick = pick(A.revFixes);
     $('aiRev').onclick = () => run(true);
     $('aiSide').querySelectorAll('[data-next]').forEach((b) => (b.onclick = () => handOff(b.dataset.next)));
   }
@@ -238,8 +252,8 @@ export function mount(host) {
     if (!state.user) { say(L('Daftar atau masuk dulu untuk memakai AI.', 'Sign up or sign in to use the AI.'), 'warn'); authDialog('daftar', '', () => run(revision)); return; }
     const base = revision ? cur() : null;
     if (revision && (!base || !revOpen())) return;
-    const note = (revision ? A.revNote : A.note).trim();
-    if (revision && !note) { say(L('Tulis dulu apa yang perlu direvisi.', 'Write what should be revised first.'), 'warn'); $('aiRevNote')?.focus(); return; }
+    const fixes = [...(revision ? A.revFixes : A.fixes)];
+    if (revision && !fixes.length) { say(L('Pilih dulu apa yang perlu direvisi.', 'Pick what to revise first.'), 'warn'); return; }
     const size = revision ? base.size : A.size;
     const cost = revision ? PRICE.revise[size] : PRICE.cost[size];
     if (state.credits < cost) { topupDialog(L(`Kredit tidak cukup. ${revision ? 'Revisi' : 'Gambar ulang AI'} ${size} memakai ${cost} kredit.`, `Not enough credits. ${revision ? 'A revision' : 'An AI redraw'} at ${size} uses ${cost} credits.`)); return; }
@@ -265,8 +279,9 @@ export function mount(host) {
       }
       const id = uuid();
       const r = await invoke('ai-redraw', {
-        action: 'generate', id, parent: revision ? A.rootId : undefined, size, style: A.style, chroma, note,
-        image: { mime: input.mime, data: input.data }, w: input.w, h: input.h, mock: A.mock && isAdmin() ? true : undefined,
+        action: 'generate', id, parent: revision ? A.rootId : undefined, size, style: A.style, chroma, fixes,
+        image: { mime: input.mime, data: input.data }, w: input.w, h: input.h,
+        mock: A.mock && isAdmin() ? true : undefined, mock_fail: A.mock && A.mockFail && isAdmin() ? true : undefined,
       });
       setCredits(r.balance);
       const raw = await fromB64(r.mime || 'image/png', r.image);
@@ -275,12 +290,12 @@ export function mount(host) {
       const t = canvasOf(96, Math.max(1, Math.round(96 * v.canvas.height / v.canvas.width))); t.getContext('2d').drawImage(v.canvas, 0, 0, t.width, t.height);
       v.thumb = t.toDataURL('image/png');
       const roots = A.versions.filter((x) => !x.parent).length;
-      if (!revision) { A.revNote = ''; v.at = Date.now(); A.rootId = id; A.rootAt = v.at; A.chroma = chroma; v.label = roots ? L(`Hasil ${roots + 1}`, `Result ${roots + 1}`) : L('Hasil', 'Result'); }
+      if (!revision) { A.revFixes.length = 0; v.at = Date.now(); A.rootId = id; A.rootAt = v.at; A.chroma = chroma; v.label = roots ? L(`Hasil ${roots + 1}`, `Result ${roots + 1}`) : L('Hasil', 'Result'); }
       else { const n = A.versions.filter((x) => x.parent === A.rootId).length + 1; v.label = L(`Revisi ${n}`, `Revision ${n}`); }
       const prev = cur(); if (prev) prev.canvas = null;   // keep memory low: only the shown result stays decoded
       A.versions.push(v);
       A.cur = A.versions.length - 1; A.view = 'result'; A.downloaded = false;
-      if (revision) A.revNote = '';
+      if (revision) A.revFixes.length = 0;
       toast(L(`Selesai. ${r.cost} kredit terpakai, sisa ${r.balance}.`, `Done. ${r.cost} credits used, ${r.balance} left.`));
       if (size === '4K' && r.w && Math.max(r.w, r.h) < 3000) say(L(`AI hanya menghasilkan ${r.w}×${r.h} px, jadi dihitung harga 2K dan selisih kreditnya sudah dikembalikan.`, `The AI only returned ${r.w}×${r.h} px, so it was charged at the 2K price and the difference was refunded.`), 'warn');
       db.from('halftone_image_history').insert({
