@@ -9,9 +9,10 @@ begin
      or p_cost is null or p_cost <= 0 or p_cost > 100 then raise exception 'invalid'; end if;
   v_ref := case when p_parent is null then 'ai:' || p_id else 'air:' || p_parent || ':' || p_id end;
   perform pg_advisory_xact_lock(hashtextextended(p_user::text, 0));
-  select coalesce(sum(delta), 0)::int into v_balance from public.credit_ledger where user_id = p_user;
-  if exists (select 1 from public.credit_ledger where ref = v_ref) then return v_balance; end if;
-  if (select count(*) from public.credit_ledger where user_id = p_user and reason in ('ai_redraw', 'ai_revise') and created_at > now() - interval '1 hour') >= p_hourly_limit then
+  if exists (select 1 from public.credit_ledger where ref = v_ref) then raise exception 'duplicate'; end if;   -- same request twice: no second AI run
+  -- per hour: at most p_hourly_limit runs, and a pause after 6 failed (refunded) runs
+  if (select count(*) from public.credit_ledger where user_id = p_user and reason in ('ai_redraw', 'ai_revise') and created_at > now() - interval '1 hour') >= p_hourly_limit
+     or (select count(*) from public.credit_ledger where user_id = p_user and reason = 'ai_refund' and ref like 'aif:%' and created_at > now() - interval '1 hour') >= 6 then
     raise exception 'rate_limited';
   end if;
   if p_parent is not null then
@@ -23,6 +24,7 @@ begin
       raise exception 'revision_limit';
     end if;
   end if;
+  select coalesce(sum(delta), 0)::int into v_balance from public.credit_ledger where user_id = p_user;
   if v_balance < p_cost then raise exception 'insufficient_credits'; end if;
   insert into public.credit_ledger (user_id, delta, reason, ref)
     values (p_user, -p_cost, case when p_parent is null then 'ai_redraw' else 'ai_revise' end, v_ref);
