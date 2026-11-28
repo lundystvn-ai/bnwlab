@@ -70,12 +70,70 @@ export function mount(host) {
       </div>
       <p class="xs subtle">Total pendapatan: ${rupiah(data.revenue_total)} · ${num(data.pending)} tagihan belum dibayar</p>
       <div id="ovQuota" style="margin-top:12px"></div>
+      <div id="ovUsage" style="margin-top:12px"></div>
       <div class="toolbar" style="margin-top:20px"><h2>Perlu dicek</h2><button class="btn btn-secondary" data-goto="pembayaran">Semua pembayaran</button></div>
       <div id="ovList"></div>`;
     body().querySelector('[data-goto]').onclick = () => host.querySelector('[data-tab=pembayaran]').click();
     quotaBox($('ovQuota'));
+    usageBox($('ovUsage'));
     await paymentTable($('ovList'), 'waiting');
     badge();
+  }
+
+  // Server capacity: estimated data transfer (egress) against the Supabase plan, plus the upgrade plan.
+  async function usageBox(box) {
+    const { data: u, error } = await db.rpc('admin_usage_stats');
+    if (!alive || !box.isConnected || error || !u) return;
+    const gb = (b) => (Number(b) / 1e9).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+    const mb = (b) => (b ? (Number(b) / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' MB' : '–');
+    const quotaGb = Math.round(u.quota / 1e9), free = quotaGb <= 5;
+    const pct = Math.round((u.total / u.quota) * 100), pace = Math.round((u.projected / u.quota) * 100);
+    const worst = Math.max(pct, pace);
+    const perDay = (u.week_ai_count / 7).toLocaleString('id-ID', { maximumFractionDigits: 1 });
+    const level = worst >= 80 || (free && u.week_ai_count / 7 >= 15) ? 'bad' : worst >= 50 ? 'warn' : 'ok';
+    const status = { ok: ['Aman', 'Kapasitas masih longgar. Belum perlu upgrade.'], warn: ['Siap-siap', 'Pemakaian sudah separuh kuota. Siapkan upgrade dalam 1–2 minggu.'], bad: [free ? 'Saatnya upgrade' : 'Hampir penuh', free ? 'Upgrade Supabase ke Pro sekarang supaya situs tidak dibatasi.' : 'Pemakaian mendekati kuota paket. Cek halaman Usage di Supabase.'] }[level];
+    box.innerHTML = `<div class="card stack usage-card">
+      <div class="toolbar" style="margin:0"><h3 style="margin:0;font-size:var(--text-base)">Kapasitas server</h3><span class="grow"></span><span class="badge usage-${level}">${status[0]}</span></div>
+      <div class="progress ${level}"><div class="head"><span>Transfer data 30 hari (perkiraan) · Supabase ${free ? 'Free' : 'Pro'}</span><b class="num">${gb(u.total)} / ${quotaGb} GB</b></div><div class="bar"><i style="width:${Math.min(100, pct)}%"></i></div>
+        <small>${pct}% terpakai · laju 7 hari terakhir ≈ ${gb(u.projected)} GB/bulan (${pace}%)</small></div>
+      <p class="small" style="margin:0">${status[1]}</p>
+      <div class="usage-rows small muted">
+        <div><span>Redraw AI 30 hari</span><b>${num(u.ai_count)} gambar · ${gb(u.ai_bytes)} GB</b></div>
+        <div><span>Redraw AI 7 hari terakhir</span><b>${num(u.week_ai_count)} gambar (± ${perDay}/hari)</b></div>
+        <div><span>Ukuran rata-rata hasil</span><b>2K ${mb(u.avg_2k)} · 4K ${mb(u.avg_4k)}</b></div>
+        <div><span>Halaman &amp; data lain</span><b>± ${gb(u.other_bytes)} GB (${num(u.pageviews)} tampilan halaman)</b></div>
+      </div>
+      <details class="usage-plan"${level === 'bad' && free ? ' open' : ''}><summary>Rencana upgrade ${icon('chev')}</summary>
+        <div class="stack small">
+          <p style="margin:0"><b>Kapan upgrade?</b> Kalau salah satu terjadi:</p>
+          <ul style="margin:0;padding-left:18px">
+            <li>Transfer data atau lajunya sudah ≥ 80% kuota (status merah di atas).</li>
+            <li>Redraw AI rata-rata ≥ 15 gambar per hari selama seminggu.</li>
+            <li>Pelanggan berbayar sudah banyak: paket Free tidak punya backup, padahal saldo kredit tersimpan di database.</li>
+          </ul>
+          <p style="margin:0"><b>Langkah:</b></p>
+          <ol style="margin:0;padding-left:18px">
+            <li>Buka <a href="https://supabase.com/dashboard/org/okjkowacmivpdullqtwe/billing" target="_blank" rel="noopener">Supabase → Billing</a>, pilih <b>Change plan → Pro</b> ($25/bulan, ± Rp420 ribu). Bayar dengan kartu kredit/debit.</li>
+            <li>Biarkan <b>Spend cap</b> tetap aktif supaya tidak ada tagihan tambahan di luar $25.</li>
+            <li>Kembali ke sini dan tekan <b>Sudah upgrade ke Pro</b> di bawah supaya batas kuota berubah ke 250 GB.</li>
+            <li>Naikkan <b>batas harian AI</b> di tab Redraw AI (misalnya 300 → 1000) kalau pesanan banyak.</li>
+            <li>Di Google Cloud Billing, pasang <b>budget alert</b> untuk Gemini. Tier 2 Gemini terbuka otomatis setelah total belanja $100 dan 3 hari.</li>
+          </ol>
+          <p class="xs subtle" style="margin:0">Hitungan kasar: biaya Pro tertutup dari ± 120 gambar Redraw AI per bulan. Pro juga memberi backup harian (7 hari) dan proyek tidak pernah dijeda.</p>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            ${free ? '<button class="btn btn-secondary" data-q="250">Sudah upgrade ke Pro (250 GB)</button>' : '<button class="btn btn-secondary" data-q="5">Kembali ke Free (5 GB)</button>'}
+          </div>
+        </div>
+      </details>
+      <p class="xs subtle" style="margin:0">Angka ini perkiraan: hasil Redraw AI diukur ${u.since ? 'sejak ' + esc(fmtDate(u.since)) : 'mulai gambar AI berikutnya'}, data lain dihitung ± 40 KB per tampilan halaman. Angka resmi ada di <a href="https://supabase.com/dashboard/org/okjkowacmivpdullqtwe/usage" target="_blank" rel="noopener">Supabase → Usage</a>. Kalau Telegram admin tersambung, peringatan dikirim otomatis di 50%, 80%, dan 95%.</p>
+    </div>`;
+    box.querySelector('[data-q]').onclick = async (e) => {
+      const q = Number(e.currentTarget.dataset.q);
+      if (!(await confirmBox({ title: q === 250 ? 'Sudah upgrade ke Pro?' : 'Kembali ke Free?', body: q === 250 ? 'Pastikan paket di Supabase Billing sudah Pro. Batas kuota di pemantau ini berubah ke 250 GB.' : 'Batas kuota di pemantau ini kembali ke 5 GB.', okLabel: 'Ya, ubah' }))) return;
+      const { error: e2 } = await db.rpc('admin_set_usage_quota', { p_gb: q });
+      if (e2) { toast(e2.message); return; }
+      toast('Kuota pemantau diperbarui.'); usageBox(box);
+    };
   }
 
   async function quotaBox(box) {

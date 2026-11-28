@@ -287,6 +287,8 @@ Deno.serve(async (req) => {
           const { data: b2 } = diff === 0 ? { data: null } : await admin.rpc('grant_credits', { p_user: user.id, p_amount: diff, p_reason: 'ai_refund', p_ref: 'aip:' + ref });
           if (b2 != null) { balance = Number(b2); charged = cost - diff; }
         }
+        // Log the response size for the data-transfer monitor (Admin → Ringkasan). Never blocks the customer.
+        try { await admin.rpc('ai_log_usage', { p_bytes: out.data.length, p_size: Math.max(dim.w, dim.h) >= 3000 ? '4K' : '2K' }); } catch { /* monitor only */ }
         return json({ id, parent, image: out.data, mime: out.mime, w: dim.w, h: dim.h, cost: charged, balance, model: c.model });
       }
 

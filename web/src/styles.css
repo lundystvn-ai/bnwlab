@@ -729,3 +729,18 @@ canvas{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .redraw-shot figcaption{margin-top:10px;font-size:var(--text-xs);color:var(--color-text-subtle);text-align:center}
 @media (max-width:1000px){.redraw-grid{grid-template-columns:1fr;gap:0}.redraw-copy{display:contents}.redraw-copy>*{order:1}.redraw-tag{justify-self:start}.redraw-shot{order:2;max-width:460px;width:100%;margin:0 auto 24px}.redraw-uses,.redraw-perks,.redraw-cta{order:3}}
 @media (max-width:600px){.ai-announce{border-radius:var(--radius-lg);align-items:flex-start}.ai-announce span{white-space:normal}.redraw-uses{grid-template-columns:1fr}.redraw-cta .btn{width:100%;justify-content:center}}
+
+/* Admin → Ringkasan: server capacity */
+.usage-card{gap:10px}
+.badge.usage-ok{background:var(--color-success-soft);color:var(--color-success)}
+.badge.usage-warn{background:var(--color-warning-soft);color:var(--color-warning)}
+.badge.usage-bad{background:var(--color-danger-soft);color:var(--color-danger)}
+.usage-rows{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px}
+.usage-rows>div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--color-border)}
+.usage-rows b{color:var(--color-text);font-weight:600;text-align:right}
+.usage-plan{border:1px solid var(--color-border);border-radius:var(--radius-md);padding:10px 12px}
+.usage-plan summary{cursor:pointer;font-weight:600;display:flex;justify-content:space-between;align-items:center;list-style:none}
+.usage-plan summary::-webkit-details-marker{display:none}
+.usage-plan[open] summary{margin-bottom:10px}
+.usage-plan summary .i{transform:rotate(90deg);transition:transform .15s}.usage-plan[open] summary .i{transform:rotate(-90deg)}
+@media (max-width:760px){.usage-rows{grid-template-columns:1fr}}
