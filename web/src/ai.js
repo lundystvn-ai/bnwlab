@@ -47,7 +47,7 @@ const FIXES = () => [
 const MAX_FIXES = 3;
 const MAX_NOTE = 100;
 // A textarea (not an input) so the browser does not pop up its autofill list over the field.
-const noteBox = (id, value, placeholder, disabled = false) => `<div class="ai-note"><textarea id="${id}" rows="2" maxlength="${MAX_NOTE}" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false"${disabled ? ' disabled' : ''}>${esc(value)}</textarea><span class="xs subtle" id="${id}N">${value.length}/${MAX_NOTE}</span></div>`;
+const noteBox = (id, value, placeholder, disabled = false) => `<div class="ai-note"><textarea class="ai-note-in" id="${id}" rows="2" maxlength="${MAX_NOTE}" placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false"${disabled ? ' disabled' : ''}>${esc(value)}</textarea><span class="xs subtle" id="${id}N">${value.length}/${MAX_NOTE}</span></div>`;
 const chips = (id, picked, disabled = false, skip = []) => `<div class="ai-chips" id="${id}" role="group">${FIXES().filter(([k]) => !skip.includes(k)).map(([k, name]) => `<button type="button" class="ai-chip" data-fix="${k}" aria-pressed="${picked.includes(k)}"${disabled || (!picked.includes(k) && picked.length >= MAX_FIXES) ? ' disabled' : ''}>${esc(name)}</button>`).join('')}</div>`;
 
 const loadBitmap = async (blob) => { try { return await createImageBitmap(blob); } catch { const u = URL.createObjectURL(blob); try { const im = new Image(); im.src = u; await im.decode(); return im; } finally { setTimeout(() => URL.revokeObjectURL(u), 1000); } } };
